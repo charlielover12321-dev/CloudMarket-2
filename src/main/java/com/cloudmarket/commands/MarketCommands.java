@@ -111,7 +111,7 @@ public final class MarketCommands implements CommandExecutor, TabCompleter {
             plugin.configs().messages().send(player, "market.empty-hand");
             return;
         }
-        if (!MarketManager.isPlainStack(hand)) {
+        if (!plugin.market().isSellableStack(hand)) {
             plugin.configs().messages().send(player, "market.modified-item");
             return;
         }
@@ -158,7 +158,7 @@ public final class MarketCommands implements CommandExecutor, TabCompleter {
         ItemStack[] contents = player.getInventory().getContents();
         for (int slot = from; slot <= to && slot < contents.length; slot++) {
             ItemStack stack = contents[slot];
-            if (stack == null || stack.getType().isAir() || !MarketManager.isPlainStack(stack)) {
+            if (stack == null || stack.getType().isAir() || !plugin.market().isSellableStack(stack)) {
                 continue;
             }
             if (!plugin.market().isTradable(stack.getType())) {

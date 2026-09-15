@@ -156,6 +156,7 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             return;
         }
         item.setStock(amount);
+        plugin.market().valuation().invalidate();
         plugin.configs().messages().send(sender, "admin.stock-set", Map.of(
                 "item", Fmt.pretty(material),
                 "amount", Fmt.count(item.getStock())));
@@ -265,6 +266,10 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case ORES -> 5.0d;
             case WOOD -> 1.5d;
             case MOB_DROPS -> 3.0d;
+            case TOOLS -> 8.0d;
+            case REDSTONE_TECH -> 4.0d;
+            case BUILDING -> 1.0d;
+            case DECORATION -> 1.0d;
             case FOOD -> 1.0d;
             case MISC -> 0.5d;
         };
@@ -272,10 +277,10 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
 
     private long suggestEquilibrium(Category category) {
         return switch (category) {
-            case WOOD, MISC -> 8192L;
+            case WOOD, MISC, BUILDING, DECORATION -> 8192L;
             case FOOD -> 6144L;
-            case MOB_DROPS -> 3072L;
-            case ORES -> 2048L;
+            case MOB_DROPS, REDSTONE_TECH -> 3072L;
+            case ORES, TOOLS -> 2048L;
         };
     }
 

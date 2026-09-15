@@ -41,28 +41,39 @@ public final class GuiManager {
 
     // ---------------------------------------------------------- global market
 
+    /**
+     * Slots the category tiles occupy, in order. Two centred rows, which leaves
+     * room for more categories than currently exist without another layout change.
+     */
+    public static final int[] CATEGORY_SLOTS =
+            {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
+
     public void openCategories(Player player) {
+        plugin.market().refreshDerivedPrices();
         MarketHolder holder = MarketHolder.categories();
-        Inventory inventory = Bukkit.createInventory(holder, 27,
+        Inventory inventory = Bukkit.createInventory(holder, 36,
                 plugin.configs().messages().bare("gui.market-title", Map.of()));
         holder.setInventory(inventory);
 
         Map<Category, Integer> counts = plugin.market().categoryCounts();
-        int[] slots = {10, 11, 12, 13, 14};
         Category[] categories = Category.values();
-        for (int index = 0; index < categories.length && index < slots.length; index++) {
+        for (int index = 0; index < categories.length && index < CATEGORY_SLOTS.length; index++) {
             Category category = categories[index];
-            inventory.setItem(slots[index], icon(category.getIcon(),
+            inventory.setItem(CATEGORY_SLOTS[index], icon(category.getIcon(),
                     "&b&l" + category.getDisplayName(),
                     List.of("&7" + counts.getOrDefault(category, 0) + " items available",
                             "",
                             "&eClick to browse")));
         }
-        inventory.setItem(22, balanceIcon(player));
+        inventory.setItem(31, balanceIcon(player));
         player.openInventory(inventory);
     }
 
     public void openCategory(Player player, Category category, int page) {
+        // Crafted prices move whenever an ingredient's stock does, so re-derive
+        // before painting the screen rather than showing a stale number the player
+        // would then be charged a different amount for.
+        plugin.market().refreshDerivedPrices();
         List<MarketItem> all = plugin.market().byCategory(category);
         int pages = Math.max(1, (int) Math.ceil(all.size() / (double) CONTENT_SLOTS));
         int safePage = Math.max(0, Math.min(page, pages - 1));

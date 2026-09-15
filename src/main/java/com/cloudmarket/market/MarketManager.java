@@ -59,14 +59,36 @@ public final class MarketManager {
 
     private final CloudMarket plugin;
     private final Map<Material, MarketItem> items = new ConcurrentHashMap<>();
+    /**
+     * Items whose prices come from market-items.yml. These anchor the valuation
+     * tree: every crafted price is ultimately derived from them, so they must be
+     * distinguishable from the derived items that also live in {@link #items}.
+     */
+    private final Map<Material, MarketItem> configured = new ConcurrentHashMap<>();
     private final CraftableScanner scanner;
+    private final RecipeValuation valuation;
     private final SellLimiter limiter;
     private Set<Material> whitelist = Set.of();
+    private volatile boolean refuseDamaged = true;
 
     public MarketManager(CloudMarket plugin) {
         this.plugin = plugin;
         this.scanner = new CraftableScanner(plugin.getLogger());
+        this.valuation = new RecipeValuation(plugin);
         this.limiter = new SellLimiter(plugin.configs().sellCapPerHour());
+    }
+
+    public RecipeValuation valuation() {
+        return valuation;
+    }
+
+    /** The config-priced item for this material, or null if it is derived. */
+    public MarketItem configured(Material material) {
+        return configured.get(material);
+    }
+
+    public boolean isDerived(Material material) {
+        return items.containsKey(material) && !configured.containsKey(material);
     }
 
     public CraftableScanner scanner() {
@@ -96,6 +118,7 @@ public final class MarketManager {
     public void rebuild(List<SqlStorage.MarketRow> persisted) {
         scanner.scan();
         whitelist = plugin.configs().whitelistedCraftables();
+        refuseDamaged = plugin.configs().refuseDamaged();
         limiter.setCapPerHour(plugin.configs().sellCapPerHour());
 
         Map<String, SqlStorage.MarketRow> saved = new HashMap<>();
@@ -104,6 +127,7 @@ public final class MarketManager {
         }
 
         items.clear();
+        configured.clear();
         ConfigurationSection root = plugin.configs().marketItems().getConfigurationSection("items");
         if (root == null) {
             plugin.getLogger().warning("[CloudMarket] market-items.yml has no 'items' section; "
@@ -159,12 +183,96 @@ public final class MarketManager {
 
             items.put(material, new MarketItem(material, category, base, floor, ceiling,
                     equilibrium, stock, enabled));
+            configured.put(material, items.get(material));
         }
 
         plugin.getLogger().info("[CloudMarket] Market loaded: " + items.size() + " tradable materials"
                 + (skippedCraftable > 0 ? ", " + skippedCraftable + " config entries ignored as craftable" : "")
                 + (skippedUnknown > 0 ? ", " + skippedUnknown + " unknown material names skipped" : "") + ".");
+
+        if (plugin.configs().craftedEnabled()) {
+            buildDerivedItems(saved);
+        }
         warnAboutFarmableFloors();
+    }
+
+    /**
+     * Create a tradable entry for every craftable material the valuation engine can
+     * price.
+     *
+     * <p>These carry their own stock pool, so you can only buy diorite somebody has
+     * actually sold - selling diorite does not push cobblestone and quartz into
+     * those pools.
+     *
+     * <p>The ceiling is pinned to ingredient value and the floor sits at zero. That
+     * pinning is the whole safety property: the curve pays 2x base at zero stock to
+     * reward selling something scarce, which for a crafted item would hand the first
+     * seller double what the materials cost. Capping at ingredient value keeps the
+     * "dumping crashes the price" behaviour while making craft-and-sell a loss.
+     */
+    private void buildDerivedItems(Map<String, SqlStorage.MarketRow> saved) {
+        valuation.buildGraph();
+        double multiplier = plugin.configs().craftedMultiplier();
+        long equilibrium = plugin.configs().craftedEquilibrium();
+
+        int created = 0;
+        int unpriceable = 0;
+        for (Material material : Material.values()) {
+            if (material.isLegacy() || material.isAir() || !material.isItem()) {
+                continue;
+            }
+            if (configured.containsKey(material)) {
+                continue;
+            }
+            Double value = valuation.valueOf(material);
+            if (value == null || value <= 0.0d) {
+                unpriceable++;
+                continue;
+            }
+            double ceiling = value * multiplier;
+
+            long stock = 0L;
+            SqlStorage.MarketRow row = saved.get(material.name());
+            if (row != null) {
+                stock = row.currentStock();
+            }
+
+            items.put(material, new MarketItem(material, Category.classify(material),
+                    ceiling, 0.0d, ceiling, equilibrium, stock, true));
+            created++;
+        }
+
+        plugin.getLogger().info("[CloudMarket] Crafted goods: " + created
+                + " priced from their recipes, " + unpriceable
+                + " could not be priced (no recipe path to a raw material).");
+    }
+
+    /**
+     * Re-derive crafted prices from the current state of the raw material curves.
+     *
+     * <p>Must run before any crafted item is quoted. Ingredient prices move on every
+     * transaction, and a crafted price computed from stale ingredient values is
+     * exactly the gap a player would arbitrage.
+     */
+    public void refreshDerivedPrices() {
+        if (!plugin.configs().craftedEnabled()) {
+            return;
+        }
+        double multiplier = plugin.configs().craftedMultiplier();
+        long equilibrium = plugin.configs().craftedEquilibrium();
+        for (MarketItem item : items.values()) {
+            if (configured.containsKey(item.getMaterial())) {
+                continue;
+            }
+            Double value = valuation.valueOf(item.getMaterial());
+            if (value == null || value <= 0.0d) {
+                item.setEnabled(false);
+                continue;
+            }
+            double ceiling = value * multiplier;
+            item.setPrices(ceiling, 0.0d, ceiling, equilibrium);
+            item.setEnabled(true);
+        }
     }
 
     /**
@@ -195,7 +303,13 @@ public final class MarketManager {
 
     /** True if the raw-material rule and the override list allow this material. */
     public boolean isEligible(Material material) {
-        return scanner.isRaw(material) || whitelist.contains(material);
+        if (scanner.isRaw(material) || whitelist.contains(material)) {
+            return true;
+        }
+        // With recipe pricing on, a crafted material is eligible as soon as the
+        // valuation engine can reach a raw material through its recipe tree. No
+        // whitelist entry and no config price needed.
+        return plugin.configs().craftedEnabled() && items.containsKey(material);
     }
 
     public boolean isTradable(Material material) {
@@ -231,6 +345,7 @@ public final class MarketManager {
 
     /** Price a sale without committing it, for confirmation screens. */
     public TradeOutcome quoteSell(Player player, Material material, int quantity) {
+        refreshDerivedPrices();
         if (material == null || material.isAir() || quantity <= 0) {
             return TradeOutcome.fail(Result.INVALID_ITEM);
         }
@@ -287,6 +402,7 @@ public final class MarketManager {
 
         removeFrom(player.getInventory(), material, amount);
         item.addStock(amount);
+        valuation.invalidate();
         plugin.economy().deposit(player.getUniqueId(), quote.net());
         plugin.economy().burn(quote.tax());
         limiter.record(player.getUniqueId(), material, amount);
@@ -301,6 +417,7 @@ public final class MarketManager {
 
     /** Price a purchase without committing it. */
     public TradeOutcome quoteBuy(Player player, Material material, int quantity) {
+        refreshDerivedPrices();
         if (material == null || material.isAir() || quantity <= 0) {
             return TradeOutcome.fail(Result.INVALID_ITEM);
         }
@@ -341,6 +458,7 @@ public final class MarketManager {
         }
 
         item.addStock(-quantity);
+        valuation.invalidate();
         plugin.economy().burn(quote.tax());
         giveItems(player, material, quantity);
 
@@ -352,10 +470,10 @@ public final class MarketManager {
 
     // --------------------------------------------------------------- inventory
 
-    public static int countIn(PlayerInventory inventory, Material material) {
+    public int countIn(PlayerInventory inventory, Material material) {
         int total = 0;
         for (ItemStack stack : inventory.getStorageContents()) {
-            if (stack != null && stack.getType() == material && isPlainStack(stack)) {
+            if (stack != null && stack.getType() == material && isSellableStack(stack)) {
                 total += stack.getAmount();
             }
         }
@@ -368,19 +486,33 @@ public final class MarketManager {
      * selling it at material price would destroy value the player did not intend
      * to give up.
      */
-    public static boolean isPlainStack(ItemStack stack) {
-        return !stack.hasItemMeta() || stack.getItemMeta() == null
-                || (!stack.getItemMeta().hasDisplayName()
-                && !stack.getItemMeta().hasEnchants()
-                && !stack.getItemMeta().hasLore());
+    public boolean isSellableStack(ItemStack stack) {
+        if (stack == null || stack.getType().isAir()) {
+            return false;
+        }
+        org.bukkit.inventory.meta.ItemMeta meta = stack.hasItemMeta() ? stack.getItemMeta() : null;
+        if (meta == null) {
+            return true;
+        }
+        if (meta.hasDisplayName() || meta.hasEnchants() || meta.hasLore()) {
+            return false;
+        }
+        // Damaged tools and armour. A worn diamond pickaxe still contains three
+        // diamonds by recipe, so paying derived value for it would let a player mine
+        // an item to the brink of breaking and still cash it out whole.
+        if (refuseDamaged && meta instanceof org.bukkit.inventory.meta.Damageable damageable
+                && damageable.hasDamage()) {
+            return false;
+        }
+        return true;
     }
 
-    private static void removeFrom(PlayerInventory inventory, Material material, int amount) {
+    private void removeFrom(PlayerInventory inventory, Material material, int amount) {
         int remaining = amount;
         ItemStack[] contents = inventory.getStorageContents();
         for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
             ItemStack stack = contents[slot];
-            if (stack == null || stack.getType() != material || !isPlainStack(stack)) {
+            if (stack == null || stack.getType() != material || !isSellableStack(stack)) {
                 continue;
             }
             int take = Math.min(remaining, stack.getAmount());
@@ -393,13 +525,13 @@ public final class MarketManager {
         inventory.setStorageContents(contents);
     }
 
-    private static int freeSpaceFor(PlayerInventory inventory, Material material) {
+    private int freeSpaceFor(PlayerInventory inventory, Material material) {
         int max = material.getMaxStackSize();
         int space = 0;
         for (ItemStack stack : inventory.getStorageContents()) {
             if (stack == null || stack.getType().isAir()) {
                 space += max;
-            } else if (stack.getType() == material && isPlainStack(stack)) {
+            } else if (stack.getType() == material && isSellableStack(stack)) {
                 space += Math.max(0, max - stack.getAmount());
             }
         }

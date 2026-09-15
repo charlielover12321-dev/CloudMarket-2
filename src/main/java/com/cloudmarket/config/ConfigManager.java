@@ -150,6 +150,44 @@ public final class ConfigManager {
         return economy.getInt("autosave-seconds", 300);
     }
 
+    public boolean craftedEnabled() {
+        return economy.getBoolean("crafted.enabled", true);
+    }
+
+    /**
+     * Ingredient-value multiplier for crafted goods, clamped below the point where
+     * crafting turns a profit.
+     *
+     * <p>Buying ingredients costs {@code G * (1 + tax)} and selling the crafted item
+     * pays {@code G * m * (1 - tax)}, so the loop is profitable once
+     * {@code m > (1 + tax) / (1 - tax)}. That threshold moves with the tax rate,
+     * which is the dangerous part: an admin who sets a safe multiplier and later
+     * lowers the tax would silently open a money printer. So it is recalculated from
+     * the live tax rate here rather than being a fixed number in the config.
+     */
+    public double craftedMultiplier() {
+        double configured = economy.getDouble("crafted.multiplier", 1.0d);
+        double tax = taxRate();
+        double ceiling = (1.0d + tax) / (1.0d - tax);
+        if (configured >= ceiling) {
+            double safe = Math.max(0.0d, ceiling - 0.01d);
+            plugin.getLogger().warning("[CloudMarket] crafted.multiplier is " + configured
+                    + ", but at a " + (tax * 100) + "% tax anything at or above "
+                    + String.format("%.3f", ceiling) + " lets players buy ingredients, craft, and sell "
+                    + "at a profit forever. Using " + String.format("%.3f", safe) + " instead.");
+            return safe;
+        }
+        return Math.max(0.0d, configured);
+    }
+
+    public long craftedEquilibrium() {
+        return Math.max(1L, economy.getLong("crafted.equilibrium-stock", 2048L));
+    }
+
+    public boolean refuseDamaged() {
+        return economy.getBoolean("crafted.refuse-damaged", true);
+    }
+
     public boolean useBedrockForms() {
         return economy.getBoolean("bedrock.use-native-forms", true);
     }

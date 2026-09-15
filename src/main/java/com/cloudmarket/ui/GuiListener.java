@@ -88,7 +88,7 @@ public final class GuiListener implements Listener {
     }
 
     private void handleCategories(Player player, int slot) {
-        int[] slots = {10, 11, 12, 13, 14};
+        int[] slots = GuiManager.CATEGORY_SLOTS;
         Category[] categories = Category.values();
         for (int index = 0; index < slots.length && index < categories.length; index++) {
             if (slots[index] == slot) {
