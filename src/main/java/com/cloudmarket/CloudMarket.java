@@ -113,8 +113,29 @@ public final class CloudMarket extends JavaPlugin implements Listener {
         register("shopchest", new ShopChestCommand(this));
         register("marketadmin", new MarketAdminCommand(this));
 
-        if (configs.hookVault()) {
-            vaultHook = VaultHook.tryRegister(this);
+        // The Vault check has to happen HERE, not inside VaultHook.
+        //
+        // Calling any method on VaultHook forces the JVM to load that class, and
+        // loading it means resolving its superclass, net.milkbowl.vault.economy
+        // .AbstractEconomy. On a server without Vault that class does not exist, so
+        // the JVM throws NoClassDefFoundError before a single line of our code runs
+        // - a guard inside VaultHook is already too late. This class never names a
+        // Vault type, so the check below is safe.
+        if (configs.hookVault() && getServer().getPluginManager().getPlugin("Vault") != null) {
+            try {
+                vaultHook = VaultHook.tryRegister(this);
+            } catch (Throwable t) {
+                // An incompatible Vault build should cost us the bridge, not the
+                // whole plugin.
+                getLogger().warning("[CloudMarket] Vault is installed but the economy bridge could "
+                        + "not be registered (" + t.getClass().getSimpleName() + ": " + t.getMessage()
+                        + "). CloudMarket will run normally; other plugins just will not see "
+                        + "balances through Vault.");
+            }
+        } else if (configs.hookVault()) {
+            getLogger().info("[CloudMarket] Vault not installed, so no economy bridge was registered. "
+                    + "CloudMarket works fine without it - install Vault only if another plugin needs "
+                    + "to read or change balances.");
         }
 
         scheduleTasks();
