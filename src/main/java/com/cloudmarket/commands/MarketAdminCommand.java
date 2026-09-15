@@ -270,6 +270,9 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case REDSTONE_TECH -> 4.0d;
             case BUILDING -> 1.0d;
             case DECORATION -> 1.0d;
+            case UTILITY -> 2.0d;
+            case BREWING -> 3.0d;
+            case NATURAL -> 0.4d;
             case FOOD -> 1.0d;
             case MISC -> 0.5d;
         };
@@ -277,9 +280,9 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
 
     private long suggestEquilibrium(Category category) {
         return switch (category) {
-            case WOOD, MISC, BUILDING, DECORATION -> 8192L;
+            case WOOD, MISC, BUILDING, DECORATION, NATURAL -> 8192L;
             case FOOD -> 6144L;
-            case MOB_DROPS, REDSTONE_TECH -> 3072L;
+            case MOB_DROPS, REDSTONE_TECH, UTILITY, BREWING -> 3072L;
             case ORES, TOOLS -> 2048L;
         };
     }

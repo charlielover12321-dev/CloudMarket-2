@@ -188,6 +188,23 @@ public final class ConfigManager {
         return economy.getBoolean("crafted.refuse-damaged", true);
     }
 
+    public int auctionSlots() {
+        return Math.max(1, economy.getInt("auction.slots-per-player", 20));
+    }
+
+    public int auctionDurationDays() {
+        return Math.max(1, economy.getInt("auction.duration-days", 14));
+    }
+
+    public BigDecimal auctionMaxPrice() {
+        return BigDecimal.valueOf(economy.getDouble("auction.max-unit-price", 10_000_000.0d))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    public int auctionConfirmSeconds() {
+        return Math.max(5, economy.getInt("auction.confirm-timeout-seconds", 30));
+    }
+
     public boolean useBedrockForms() {
         return economy.getBoolean("bedrock.use-native-forms", true);
     }

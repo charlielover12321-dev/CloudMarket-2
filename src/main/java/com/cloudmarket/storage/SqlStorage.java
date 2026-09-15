@@ -43,6 +43,10 @@ public final class SqlStorage {
     public record ListingRow(int chestId, String material, BigDecimal price) {
     }
 
+    public record ListingData(int id, UUID seller, String itemData, String displayName,
+                              int quantity, BigDecimal price, long listedAt, long expiresAt) {
+    }
+
     private final Logger logger;
     private HikariDataSource dataSource;
     private boolean mysql;
@@ -143,6 +147,17 @@ public final class SqlStorage {
                   PRIMARY KEY (chest_id, material)
                 )
                 """,
+                "CREATE TABLE IF NOT EXISTS black_market_listings (\n"
+                        + "  id " + autoIncrement + ",\n"
+                        + "  seller_uuid VARCHAR(36) NOT NULL,\n"
+                        + "  item_data TEXT NOT NULL,\n"
+                        + "  display_name VARCHAR(160),\n"
+                        + "  quantity INT NOT NULL,\n"
+                        + "  price DECIMAL(18,2) NOT NULL,\n"
+                        + "  listed_at BIGINT NOT NULL,\n"
+                        + "  expires_at BIGINT NOT NULL\n"
+                        + ")",
+                "CREATE INDEX IF NOT EXISTS idx_bm_seller ON black_market_listings(seller_uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_tx_player ON transactions(player_uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_tx_time ON transactions(timestamp)",
                 "CREATE INDEX IF NOT EXISTS idx_chest_loc ON shop_chests(world, x, y, z)"
@@ -387,6 +402,77 @@ public final class SqlStorage {
             statement.setInt(1, chestId);
             statement.setString(2, material);
             statement.setBigDecimal(3, price);
+            statement.executeUpdate();
+        }
+    }
+
+    // ------------------------------------------------------- black market
+
+    public List<ListingData> loadBlackMarket() throws SQLException {
+        List<ListingData> out = new ArrayList<>();
+        try (Connection connection = connection();
+             PreparedStatement statement =
+                     connection.prepareStatement("SELECT * FROM black_market_listings");
+             ResultSet results = statement.executeQuery()) {
+            while (results.next()) {
+                try {
+                    out.add(new ListingData(
+                            results.getInt("id"),
+                            UUID.fromString(results.getString("seller_uuid")),
+                            results.getString("item_data"),
+                            results.getString("display_name"),
+                            results.getInt("quantity"),
+                            results.getBigDecimal("price"),
+                            results.getLong("listed_at"),
+                            results.getLong("expires_at")));
+                } catch (IllegalArgumentException ignored) {
+                    // Corrupt row; skip it rather than abort the load.
+                }
+            }
+        }
+        return out;
+    }
+
+    public int insertListing(UUID seller, String itemData, String displayName, int quantity,
+                             BigDecimal price, long listedAt, long expiresAt) throws SQLException {
+        String sql = "INSERT INTO black_market_listings "
+                + "(seller_uuid, item_data, display_name, quantity, price, listed_at, expires_at) "
+                + "VALUES (?,?,?,?,?,?,?)";
+        try (Connection connection = connection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setString(1, seller.toString());
+            statement.setString(2, itemData);
+            statement.setString(3, displayName);
+            statement.setInt(4, quantity);
+            statement.setBigDecimal(5, price);
+            statement.setLong(6, listedAt);
+            statement.setLong(7, expiresAt);
+            statement.executeUpdate();
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getInt(1);
+                }
+            }
+        }
+        return -1;
+    }
+
+    public void updateListingQuantity(int id, int quantity) throws SQLException {
+        try (Connection connection = connection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE black_market_listings SET quantity=? WHERE id=?")) {
+            statement.setInt(1, quantity);
+            statement.setInt(2, id);
+            statement.executeUpdate();
+        }
+    }
+
+    public void deleteListingRow(int id) throws SQLException {
+        try (Connection connection = connection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "DELETE FROM black_market_listings WHERE id=?")) {
+            statement.setInt(1, id);
             statement.executeUpdate();
         }
     }

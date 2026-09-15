@@ -4,6 +4,7 @@ import com.cloudmarket.CloudMarket;
 import com.cloudmarket.market.Category;
 import com.cloudmarket.market.MarketItem;
 import com.cloudmarket.market.PricingEngine;
+import com.cloudmarket.blackmarket.Listing;
 import com.cloudmarket.shops.ShopChest;
 import com.cloudmarket.util.Fmt;
 import net.kyori.adventure.text.Component;
@@ -74,7 +75,8 @@ public final class GuiManager {
         // before painting the screen rather than showing a stale number the player
         // would then be charged a different amount for.
         plugin.market().refreshDerivedPrices();
-        List<MarketItem> all = plugin.market().byCategory(category);
+        // Padded layout: null entries are deliberate row breaks between families.
+        List<MarketItem> all = plugin.market().layout(category);
         int pages = Math.max(1, (int) Math.ceil(all.size() / (double) CONTENT_SLOTS));
         int safePage = Math.max(0, Math.min(page, pages - 1));
 
@@ -88,7 +90,11 @@ public final class GuiManager {
 
         int start = safePage * CONTENT_SLOTS;
         for (int offset = 0; offset < CONTENT_SLOTS && start + offset < all.size(); offset++) {
-            inventory.setItem(offset, marketIcon(player, all.get(start + offset)));
+            MarketItem entry = all.get(start + offset);
+            if (entry == null) {
+                continue;
+            }
+            inventory.setItem(offset, marketIcon(player, entry));
         }
 
         inventory.setItem(45, icon(Material.ARROW, "&e&lBack", List.of("&7Return to categories")));
@@ -148,6 +154,105 @@ public final class GuiManager {
         }
 
         return icon(item.getMaterial(), "&f&l" + Fmt.pretty(item.getMaterial()), lore);
+    }
+
+    // ------------------------------------------------------------ black market
+
+    /**
+     * Browse everything on sale.
+     *
+     * <p>Each icon is the real listed item, so an enchanted pickaxe shows its
+     * enchantment glint and a spawner shows whatever your spawner plugin wrote onto
+     * it. The stack amount is set to the remaining quantity, which is what puts the
+     * live count in the corner of the icon - it updates itself as people buy.
+     */
+    public void openBlackMarket(Player player, int page) {
+        List<Listing> all = plugin.blackMarket().active();
+        renderListings(player, MarketHolder.blackMarket(page), all, page,
+                plugin.configs().messages().bare("gui.blackmarket-title", Map.of()), false);
+    }
+
+    /** A seller's own listings, including expired ones waiting to be collected. */
+    public void openMyListings(Player player, int page) {
+        List<Listing> mine = plugin.blackMarket().of(player.getUniqueId());
+        renderListings(player, MarketHolder.myListings(page), mine, page,
+                plugin.configs().messages().bare("gui.mylistings-title", Map.of(
+                        "used", String.valueOf(mine.size()),
+                        "limit", String.valueOf(plugin.blackMarket().slotLimit()))), true);
+    }
+
+    private void renderListings(Player player, MarketHolder holder, List<Listing> all, int page,
+                                Component title, boolean owned) {
+        int pages = Math.max(1, (int) Math.ceil(all.size() / (double) CONTENT_SLOTS));
+        int safePage = Math.max(0, Math.min(page, pages - 1));
+        Inventory inventory = Bukkit.createInventory(holder, SIZE, title);
+        holder.setInventory(inventory);
+
+        String symbol = plugin.configs().currencySymbol();
+        int start = safePage * CONTENT_SLOTS;
+        for (int offset = 0; offset < CONTENT_SLOTS && start + offset < all.size(); offset++) {
+            Listing listing = all.get(start + offset);
+            List<String> lore = new ArrayList<>();
+            lore.add("&7Price: &a" + symbol + Fmt.money(listing.getUnitPrice()) + " &7each");
+            lore.add("&7Remaining: &f" + Fmt.count(listing.getRemaining()));
+            lore.add("&7All of it: &a" + symbol + Fmt.money(listing.totalValue()));
+            lore.add("");
+            if (owned) {
+                lore.add(listing.isExpired()
+                        ? "&cExpired - click to collect"
+                        : "&7Expires in &f" + listing.daysRemaining() + " &7days");
+                lore.add("&eClick &7to pull this listing and take the items back");
+            } else {
+                lore.add("&7Seller: &f" + plugin.economy().nameOf(listing.getSeller()));
+                lore.add("&7Expires in &f" + listing.daysRemaining() + " &7days");
+                lore.add("");
+                lore.add("&eLeft-click &7buy one");
+                lore.add("&eShift-left &7buy the lot");
+                lore.add("&eRight-click &7choose an amount");
+            }
+            // The real item, at the remaining count, so the number in the corner of
+            // the icon is the live stock.
+            inventory.setItem(offset, decorate(listing.copyOf(
+                    Math.min(listing.getRemaining(), listing.getTemplate().getMaxStackSize())), lore));
+        }
+
+        if (all.isEmpty()) {
+            inventory.setItem(22, icon(Material.BARRIER,
+                    owned ? "&cYou have nothing listed" : "&cNothing for sale right now",
+                    owned ? List.of("&7Hold an item and run", "&e/auction hand <price>")
+                            : List.of("&7Check back later.")));
+        }
+
+        if (safePage > 0) {
+            inventory.setItem(48, icon(Material.PAPER, "&e&lPrevious page", List.of()));
+        }
+        if (safePage < pages - 1) {
+            inventory.setItem(50, icon(Material.PAPER, "&e&lNext page", List.of()));
+        }
+        inventory.setItem(49, balanceIcon(player));
+        player.openInventory(inventory);
+    }
+
+    /**
+     * Add lore to a real item without touching anything else about it. Used for
+     * listing icons, where replacing the stack would lose the enchantments and NBT
+     * that are the whole reason the item is worth buying.
+     */
+    private ItemStack decorate(ItemStack stack, List<String> lore) {
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            List<Component> lines = new ArrayList<>();
+            if (meta.hasLore() && meta.lore() != null) {
+                lines.addAll(meta.lore());
+                lines.add(Component.empty());
+            }
+            for (String line : lore) {
+                lines.add(Fmt.color(line));
+            }
+            meta.lore(lines);
+            stack.setItemMeta(meta);
+        }
+        return stack;
     }
 
     // ------------------------------------------------------------- shop chests

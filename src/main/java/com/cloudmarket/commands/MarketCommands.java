@@ -100,6 +100,7 @@ public final class MarketCommands implements CommandExecutor, TabCompleter {
             case "hand" -> sellHand(player);
             case "hotbar" -> sellSlots(player, 0, 8, "market.sold-hotbar-summary");
             case "all", "inventory", "inv" -> sellSlots(player, 0, 35, "market.sold-all-summary");
+            case "chest", "container" -> sellChest(player);
             default -> plugin.configs().messages().send(player, "market.sell-usage");
         }
         return true;
@@ -120,6 +121,100 @@ public final class MarketCommands implements CommandExecutor, TabCompleter {
 
         MarketManager.TradeOutcome outcome = plugin.market().executeSell(player, material, amount);
         reportSell(player, material, outcome);
+    }
+
+    /**
+     * Sell everything sellable out of the chest the player is looking at.
+     *
+     * <p>Registered shop chests are refused. Those belong to somebody and have their
+     * own pricing; emptying one into the cloud market would be theft with extra
+     * steps. Ordinary chests are fair game, since a player standing in reach could
+     * simply take the items out by hand and run /sell all anyway.
+     */
+    private void sellChest(Player player) {
+        org.bukkit.block.Block block = player.getTargetBlockExact(6);
+        if (block == null || !(block.getState() instanceof org.bukkit.block.Container container)) {
+            plugin.configs().messages().send(player, "market.look-at-container");
+            return;
+        }
+        if (plugin.shopChests().isShop(block)) {
+            plugin.configs().messages().send(player, "market.not-a-plain-chest");
+            return;
+        }
+
+        org.bukkit.inventory.Inventory inventory = container.getInventory();
+        Map<Material, Integer> totals = new LinkedHashMap<>();
+        for (ItemStack stack : inventory.getContents()) {
+            if (stack == null || stack.getType().isAir()) {
+                continue;
+            }
+            if (!plugin.market().isSellableStack(stack) || !plugin.market().isTradable(stack.getType())) {
+                continue;
+            }
+            totals.merge(stack.getType(), stack.getAmount(), Integer::sum);
+        }
+        if (totals.isEmpty()) {
+            plugin.configs().messages().send(player, "market.nothing-in-chest");
+            return;
+        }
+
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        int lines = 0;
+        for (Map.Entry<Material, Integer> entry : totals.entrySet()) {
+            // Quote against the market, but take the items out of the chest rather
+            // than the player's inventory, so executeSell cannot be reused directly.
+            MarketManager.TradeOutcome quote =
+                    plugin.market().quoteSell(player, entry.getKey(), entry.getValue());
+            if (!quote.ok()) {
+                continue;
+            }
+            int removed = removeFromContainer(inventory, entry.getKey(), quote.quantity());
+            if (removed <= 0) {
+                continue;
+            }
+            MarketManager.TradeOutcome settled =
+                    plugin.market().settleExternalSale(player, entry.getKey(), removed);
+            if (!settled.ok()) {
+                continue;
+            }
+            grandTotal = grandTotal.add(settled.quote().net());
+            lines++;
+            player.sendMessage(plugin.configs().messages().bare("market.sold-line", Map.of(
+                    "amount", String.valueOf(removed),
+                    "item", Fmt.pretty(entry.getKey()),
+                    "total", Fmt.money(settled.quote().net()),
+                    "symbol", plugin.configs().currencySymbol())));
+        }
+
+        if (lines == 0) {
+            plugin.configs().messages().send(player, "market.nothing-in-chest");
+            return;
+        }
+        plugin.configs().messages().send(player, "market.sold-chest-summary", Map.of(
+                "stacks", String.valueOf(lines),
+                "total", Fmt.money(grandTotal),
+                "symbol", plugin.configs().currencySymbol()));
+    }
+
+    private int removeFromContainer(org.bukkit.inventory.Inventory inventory,
+                                    Material material, int amount) {
+        int remaining = amount;
+        ItemStack[] contents = inventory.getContents();
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack stack = contents[slot];
+            if (stack == null || stack.getType() != material
+                    || !plugin.market().isSellableStack(stack)) {
+                continue;
+            }
+            int take = Math.min(remaining, stack.getAmount());
+            stack.setAmount(stack.getAmount() - take);
+            remaining -= take;
+            if (stack.getAmount() <= 0) {
+                contents[slot] = null;
+            }
+        }
+        inventory.setContents(contents);
+        return amount - remaining;
     }
 
     private void reportSell(Player player, Material material, MarketManager.TradeOutcome outcome) {
@@ -204,7 +299,7 @@ public final class MarketCommands implements CommandExecutor, TabCompleter {
                                       @NotNull String alias, @NotNull String[] args) {
         String name = command.getName().toLowerCase(Locale.ROOT);
         if (name.equals("sell") && args.length == 1) {
-            return filter(List.of("hand", "hotbar", "all"), args[0]);
+            return filter(List.of("hand", "hotbar", "all", "chest"), args[0]);
         }
         if (name.equals("buy") && args.length == 1) {
             List<String> names = new ArrayList<>();

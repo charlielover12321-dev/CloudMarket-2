@@ -4,6 +4,8 @@ import com.cloudmarket.CloudMarket;
 import com.cloudmarket.market.Category;
 import com.cloudmarket.market.MarketItem;
 import com.cloudmarket.market.MarketManager;
+import com.cloudmarket.blackmarket.BlackMarketManager;
+import com.cloudmarket.blackmarket.Listing;
 import com.cloudmarket.shops.ShopChest;
 import com.cloudmarket.shops.ShopChestManager;
 import com.cloudmarket.util.Fmt;
@@ -70,6 +72,8 @@ public final class GuiListener implements Listener {
             case ITEMS -> handleItems(player, holder, event.getSlot(), event.getClick());
             case SHOP_CHEST -> handleShopChest(player, holder, event.getSlot(), event.getClick(),
                     top.getSize());
+            case BLACK_MARKET -> handleBlackMarket(player, holder, event.getSlot(), event.getClick());
+            case MY_LISTINGS -> handleMyListings(player, holder, event.getSlot());
         }
     }
 
@@ -116,12 +120,18 @@ public final class GuiListener implements Listener {
             return;
         }
 
-        List<MarketItem> all = plugin.market().byCategory(holder.getCategory());
+        // Must be the same padded layout the GUI drew from. Using the unpadded
+        // list here would offset every index past the first family break and buy
+        // the wrong item.
+        List<MarketItem> all = plugin.market().layout(holder.getCategory());
         int index = holder.getPage() * 45 + slot;
         if (index < 0 || index >= all.size()) {
             return;
         }
         MarketItem item = all.get(index);
+        if (item == null) {
+            return;
+        }
 
         if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
             int max = (int) Math.min(item.getStock(), 2304L);
@@ -218,6 +228,107 @@ public final class GuiListener implements Listener {
         later(() -> {
             if (player.getOpenInventory().getTopInventory().getHolder() instanceof MarketHolder) {
                 plugin.gui().openShopChest(player, chest, false);
+            }
+        });
+    }
+
+    private void handleBlackMarket(Player player, MarketHolder holder, int slot, ClickType click) {
+        if (slot == 48) {
+            later(() -> plugin.gui().openBlackMarket(player, holder.getPage() - 1));
+            return;
+        }
+        if (slot == 50) {
+            later(() -> plugin.gui().openBlackMarket(player, holder.getPage() + 1));
+            return;
+        }
+        if (slot >= 45) {
+            return;
+        }
+        List<Listing> all = plugin.blackMarket().active();
+        int index = holder.getPage() * 45 + slot;
+        if (index < 0 || index >= all.size()) {
+            return;
+        }
+        Listing listing = all.get(index);
+        if (listing.getSeller().equals(player.getUniqueId())) {
+            plugin.configs().messages().send(player, "auction.own-listing");
+            return;
+        }
+
+        if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
+            int max = listing.getRemaining();
+            later(() -> {
+                player.closeInventory();
+                plugin.bedrock().promptForNumber(player,
+                        "Buy " + com.cloudmarket.util.ItemCodec.describe(listing.getTemplate()),
+                        "How many? " + plugin.configs().currencySymbol()
+                                + Fmt.money(listing.getUnitPrice()) + " each", 1, max,
+                        amount -> buyListing(player, listing.getId(), amount));
+            });
+            return;
+        }
+
+        int amount = click.isShiftClick() ? listing.getRemaining() : 1;
+        buyListing(player, listing.getId(), amount);
+        later(() -> {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof MarketHolder) {
+                plugin.gui().openBlackMarket(player, holder.getPage());
+            }
+        });
+    }
+
+    private void buyListing(Player player, int listingId, int amount) {
+        BlackMarketManager.Purchase purchase = plugin.blackMarket().buy(player, listingId, amount);
+        String symbol = plugin.configs().currencySymbol();
+        Listing listing = plugin.blackMarket().get(listingId);
+        String name = listing == null ? "item"
+                : com.cloudmarket.util.ItemCodec.describe(listing.getTemplate());
+        switch (purchase.result()) {
+            case OK -> plugin.configs().messages().send(player, "auction.bought", Map.of(
+                    "amount", String.valueOf(purchase.quantity()),
+                    "item", name,
+                    "total", Fmt.money(purchase.total()),
+                    "symbol", symbol));
+            case OUT_OF_STOCK, NOT_FOUND -> plugin.configs().messages()
+                    .send(player, "auction.gone");
+            case EXPIRED -> plugin.configs().messages().send(player, "auction.expired");
+            case OWN_LISTING -> plugin.configs().messages().send(player, "auction.own-listing");
+            case NOT_ENOUGH_MONEY -> plugin.configs().messages().send(player, "market.cannot-afford");
+            case NO_INVENTORY_SPACE -> plugin.configs().messages().send(player, "market.inventory-full");
+            default -> plugin.configs().messages().send(player, "auction.gone");
+        }
+    }
+
+    private void handleMyListings(Player player, MarketHolder holder, int slot) {
+        if (slot == 48) {
+            later(() -> plugin.gui().openMyListings(player, holder.getPage() - 1));
+            return;
+        }
+        if (slot == 50) {
+            later(() -> plugin.gui().openMyListings(player, holder.getPage() + 1));
+            return;
+        }
+        if (slot >= 45) {
+            return;
+        }
+        List<Listing> mine = plugin.blackMarket().of(player.getUniqueId());
+        int index = holder.getPage() * 45 + slot;
+        if (index < 0 || index >= mine.size()) {
+            return;
+        }
+        Listing listing = mine.get(index);
+        BlackMarketManager.Result result = plugin.blackMarket().cancel(player, listing.getId());
+        switch (result) {
+            case OK -> plugin.configs().messages().send(player, "auction.pulled", Map.of(
+                    "item", com.cloudmarket.util.ItemCodec.describe(listing.getTemplate())));
+            case NO_INVENTORY_SPACE -> plugin.configs().messages()
+                    .send(player, "market.inventory-full");
+            case NOT_YOURS -> plugin.configs().messages().send(player, "auction.not-yours");
+            default -> plugin.configs().messages().send(player, "auction.gone");
+        }
+        later(() -> {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof MarketHolder) {
+                plugin.gui().openMyListings(player, holder.getPage());
             }
         });
     }

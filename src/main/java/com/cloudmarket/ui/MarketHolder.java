@@ -19,7 +19,9 @@ public final class MarketHolder implements InventoryHolder {
     public enum View {
         CATEGORIES,
         ITEMS,
-        SHOP_CHEST
+        SHOP_CHEST,
+        BLACK_MARKET,
+        MY_LISTINGS
     }
 
     private final View view;
@@ -45,6 +47,14 @@ public final class MarketHolder implements InventoryHolder {
 
     public static MarketHolder shopChest(ShopChest chest) {
         return new MarketHolder(View.SHOP_CHEST, null, 0, chest);
+    }
+
+    public static MarketHolder blackMarket(int page) {
+        return new MarketHolder(View.BLACK_MARKET, null, page, null);
+    }
+
+    public static MarketHolder myListings(int page) {
+        return new MarketHolder(View.MY_LISTINGS, null, page, null);
     }
 
     public View getView() {

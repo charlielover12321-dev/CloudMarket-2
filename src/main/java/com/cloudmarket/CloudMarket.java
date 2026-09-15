@@ -1,5 +1,7 @@
 package com.cloudmarket;
 
+import com.cloudmarket.blackmarket.BlackMarketManager;
+import com.cloudmarket.commands.AuctionCommand;
 import com.cloudmarket.commands.MarketAdminCommand;
 import com.cloudmarket.commands.MarketCommands;
 import com.cloudmarket.commands.MoneyCommands;
@@ -43,6 +45,7 @@ public final class CloudMarket extends JavaPlugin implements Listener {
     private EconomyManager economy;
     private MarketManager market;
     private ShopChestManager shopChests;
+    private BlackMarketManager blackMarket;
     private GuiManager gui;
     private BedrockBridge bedrock;
     private PromptManager prompts;
@@ -83,11 +86,13 @@ public final class CloudMarket extends JavaPlugin implements Listener {
         prompts = new PromptManager(this);
         market = new MarketManager(this);
         shopChests = new ShopChestManager(this);
+        blackMarket = new BlackMarketManager(this);
         gui = new GuiManager(this);
 
         try {
             economy.loadFrom(storage.loadBalances());
             shopChests.load(storage.loadChests(), storage.loadListings());
+            blackMarket.load(storage.loadBlackMarket());
         } catch (Exception e) {
             getLogger().warning("[CloudMarket] Could not load saved data: " + e.getMessage());
         }
@@ -110,6 +115,9 @@ public final class CloudMarket extends JavaPlugin implements Listener {
         register("pay", moneyCommands);
         register("balance", moneyCommands);
         register("leaderboard", moneyCommands);
+        AuctionCommand auctionCommand = new AuctionCommand(this);
+        register("auction", auctionCommand);
+        register("blackmarket", auctionCommand);
         register("shopchest", new ShopChestCommand(this));
         register("marketadmin", new MarketAdminCommand(this));
 
@@ -249,6 +257,13 @@ public final class CloudMarket extends JavaPlugin implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         economy.touch(event.getPlayer().getUniqueId(), event.getPlayer().getName());
+        // Expired listings cannot be returned to an offline player, so the only
+        // moment we can tell them is when they come back.
+        int waiting = blackMarket.expiredAwaitingCollection(event.getPlayer().getUniqueId());
+        if (waiting > 0) {
+            configs.messages().send(event.getPlayer(), "auction.expired-waiting",
+                    java.util.Map.of("count", String.valueOf(waiting)));
+        }
     }
 
     /** Write an audit-log row without blocking whatever called us. */
@@ -290,6 +305,10 @@ public final class CloudMarket extends JavaPlugin implements Listener {
 
     public ShopChestManager shopChests() {
         return shopChests;
+    }
+
+    public BlackMarketManager blackMarket() {
+        return blackMarket;
     }
 
     public GuiManager gui() {

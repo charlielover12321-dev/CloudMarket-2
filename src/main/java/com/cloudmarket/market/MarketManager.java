@@ -324,7 +324,37 @@ public final class MarketManager {
                 out.add(item);
             }
         }
-        out.sort(Comparator.comparing(item -> item.getMaterial().name()));
+        out.sort(ItemOrder.COMPARATOR);
+        return out;
+    }
+
+    /**
+     * The page layout for a category: the sorted items, with null padding inserted
+     * so each new material family starts on a fresh row.
+     *
+     * <p>Sorting alone still runs families together mid-row, so a page of tools
+     * reads as one undifferentiated block. Breaking to a new row on every family
+     * change turns it into visual groups - a row of wooden tools, a row of stone,
+     * a row of iron - which is what makes it scannable rather than merely ordered.
+     *
+     * <p>The GUI and the click handler both build the layout from this method, so a
+     * slot index means the same thing in both places. Computing it in only one of
+     * them would make every click land on the wrong item.
+     */
+    public List<MarketItem> layout(Category category) {
+        List<MarketItem> sorted = byCategory(category);
+        List<MarketItem> out = new ArrayList<>();
+        String lastFamily = null;
+        for (MarketItem item : sorted) {
+            String family = ItemOrder.familyOf(item.getMaterial());
+            if (lastFamily != null && !family.equals(lastFamily)) {
+                while (out.size() % 9 != 0) {
+                    out.add(null);
+                }
+            }
+            out.add(item);
+            lastFamily = family;
+        }
         return out;
     }
 
@@ -413,6 +443,37 @@ public final class MarketManager {
         return new TradeOutcome(Result.OK, amount, quote,
                 player.hasPermission("market.limit.bypass")
                         ? Integer.MAX_VALUE : limiter.remaining(player.getUniqueId(), material));
+    }
+
+    /**
+     * Credit a sale whose items have already been removed from somewhere other than
+     * the player's own inventory - a chest, for instance.
+     *
+     * <p>Split out from {@link #executeSell} because that method takes the items out
+     * of the player inventory itself. Calling it after emptying a chest would try to
+     * remove the same items twice and fail, or worse, take a second copy from the
+     * player's own bag.
+     */
+    public TradeOutcome settleExternalSale(Player player, Material material, int amount) {
+        if (amount <= 0) {
+            return TradeOutcome.fail(Result.INVALID_ITEM);
+        }
+        MarketItem item = items.get(material);
+        if (item == null || !item.isEnabled()) {
+            return TradeOutcome.fail(Result.NOT_CONFIGURED);
+        }
+        refreshDerivedPrices();
+        PricingEngine.Quote quote =
+                PricingEngine.quoteSell(item, item.getStock(), amount, plugin.configs().taxRate());
+
+        item.addStock(amount);
+        valuation.invalidate();
+        plugin.economy().deposit(player.getUniqueId(), quote.net());
+        plugin.economy().burn(quote.tax());
+        limiter.record(player.getUniqueId(), material, amount);
+        plugin.logTransaction(player.getUniqueId(), "SELL_MARKET", material.name(), amount,
+                quote.net(), quote.tax(), item.getStock(), "chest");
+        return new TradeOutcome(Result.OK, amount, quote, Integer.MAX_VALUE);
     }
 
     /** Price a purchase without committing it. */

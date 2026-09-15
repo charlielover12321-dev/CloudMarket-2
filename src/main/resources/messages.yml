@@ -17,7 +17,11 @@ input:
 
 market:
   buy-usage: "&7Usage: &f/buy <item> [amount]"
-  sell-usage: "&7Usage: &f/sell <hand|hotbar|all>"
+  sell-usage: "&7Usage: &f/sell <hand|hotbar|all|chest>"
+  look-at-container: "&cLook directly at a chest or barrel first."
+  not-a-plain-chest: "&cThat is a registered shop chest. Sell from an ordinary container."
+  nothing-in-chest: "&7Nothing in that container could be sold to the cloud market."
+  sold-chest-summary: "&aSold &f{stacks}&a kinds of item from the chest for &f{symbol}{total}&a."
   empty-hand: "&cYou are not holding anything."
   modified-item: "&cThat item is enchanted, renamed or has lore, so it is worth more than its material. Sell it on a shop chest instead."
   nothing-sold: "&7Nothing there could be sold to the cloud market."
@@ -53,6 +57,27 @@ leaderboard:
   empty: "&7Nobody has a balance yet."
   header: "&8&m---&r &b&lRichest players &8&m---"
   line: "&7{rank}. &f{player} &8- &a{symbol}{balance}"
+
+auction:
+  usage: "&7Usage: &f/auction hand <price per item>&7, &f/auction mine&7, or &f/blackmarket"
+  empty-hand: "&cYou are not holding anything to list."
+  bad-price: "&cEnter a positive price with at most two decimal places."
+  price-too-high: "&cThe most you can ask per item is {symbol}{max}."
+  slot-limit: "&cYou are using {used} of your {limit} listing slots. Pull one with &f/auction mine&c first."
+  confirm-prompt: "&eListing &f{amount}x {item}&e at &f{symbol}{each}&e each &8= &a{symbol}{total} &etotal. Expires in {days} days. Type &f/auction confirm&e within {seconds}s."
+  nothing-to-confirm: "&cYou have no pending listing to confirm."
+  item-changed: "&cWhat you are holding changed. Run the command again."
+  listed: "&aListed &f{amount}x {item}&a at &f{symbol}{each}&a each &8(&a{symbol}{total} total&8)&a."
+  storage-error: "&cCould not save that listing. Nothing was taken - check the console."
+  bought: "&aBought &f{amount}x {item}&a for &f{symbol}{total}&a."
+  sold-notify: "&a{buyer} bought &f{amount}x {item}&a from the black market for &f{symbol}{total}&a."
+  own-listing: "&7That is your own listing. Use &f/auction mine&7 to pull it."
+  not-yours: "&cThat listing is not yours."
+  gone: "&cThat listing is no longer available."
+  expired: "&cThat listing has expired."
+  pulled: "&aPulled your listing and took back the {item}."
+  expired-waiting: "&e{count} of your black market listings expired. Collect the items with &f/auction mine&e."
+  cancel-hint: "&7Use &f/auction mine&7 and click a listing to pull it."
 
 shopchest:
   usage: "&7Usage: &f/shopchest <create|additem|removeitem|info|remove>"
@@ -93,6 +118,8 @@ admin:
   reloaded: "&aConfiguration reloaded."
 
 gui:
+  blackmarket-title: "&8Black Market"
+  mylistings-title: "&8Your Listings &7({used}/{limit})"
   market-title: "&8Cloud Market"
   category-title: "&8{category} &7({page}/{pages})"
   shopchest-title: "&8{owner}'s shop"

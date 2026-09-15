@@ -74,6 +74,29 @@ crafted:
   # players mine an item to near-destruction and still cash it out whole.
   refuse-damaged: true
 
+# The black market: player-set prices on anything, including the enchanted and
+# NBT-bearing items the cloud market refuses.
+#
+# Listing an item TAKES it - the stack moves into the listing and comes back only
+# if you pull it or it expires. Leaving it in the seller's inventory would let them
+# list a pickaxe, mine it to one durability point, and still collect full price.
+#
+# The seller keeps the full amount. No tax, no listing fee.
+auction:
+  # Listings one player may have at once. Expired-but-uncollected listings count
+  # toward this, which nudges sellers to collect rather than parking dead listings.
+  slots-per-player: 20
+
+  # Unsold listings stop appearing on the market after this many days. The items
+  # are not pushed anywhere - they stay collectable from /auction mine, because
+  # there is no way to hand items to an offline player.
+  duration-days: 14
+
+  # Sanity ceiling on price per unit. Catches a slipped keyboard, not policy.
+  max-unit-price: 10000000.0
+
+  confirm-timeout-seconds: 30
+
 leaderboard:
   refresh-seconds: 60
   size: 10

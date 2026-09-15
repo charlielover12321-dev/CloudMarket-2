@@ -22,7 +22,10 @@ public enum Category {
     TOOLS("Tools & Armour", Material.IRON_PICKAXE),
     REDSTONE_TECH("Redstone", Material.REDSTONE_TORCH),
     DECORATION("Decoration", Material.FLOWER_POT),
-    MISC("Misc", Material.DIRT);
+    NATURAL("Natural Blocks", Material.DIRT),
+    UTILITY("Utility & Storage", Material.CHEST),
+    BREWING("Brewing", Material.BREWING_STAND),
+    MISC("Misc", Material.STICK);
 
     private final String displayName;
     private final Material icon;
@@ -97,9 +100,27 @@ public enum Category {
 
     private static final Set<String> BUILDING_FRAGMENTS = Set.of(
             "CONCRETE", "TERRACOTTA", "COBBLESTONE", "DEEPSLATE", "ANDESITE", "GRANITE",
-            "DIORITE", "TUFF", "CALCITE", "BASALT", "BLACKSTONE", "PRISMARINE", "PURPUR",
+            "DIORITE", "BLACKSTONE", "PRISMARINE", "PURPUR",
             "SANDSTONE", "QUARTZ_BLOCK", "MUD_BRICK", "NETHER_BRICK", "COPPER_BLOCK",
             "SCAFFOLDING", "BRICK");
+
+    private static final Set<String> NATURAL_FRAGMENTS = Set.of(
+            "DIRT", "SAND", "GRAVEL", "CLAY", "ICE", "SNOW", "NETHERRACK", "END_STONE",
+            "SOUL_SAND", "SOUL_SOIL", "MUD", "PODZOL", "MYCELIUM", "GRASS_BLOCK",
+            "MAGMA_BLOCK", "OBSIDIAN", "TUFF", "CALCITE", "DRIPSTONE", "BASALT",
+            "GLOWSTONE", "SCULK", "ROOTS", "NYLIUM");
+
+    private static final Set<String> UTILITY_FRAGMENTS = Set.of(
+            "CHEST", "BARREL", "FURNACE", "SMOKER", "CRAFTING_TABLE", "ANVIL",
+            "ENCHANTING_TABLE", "CAULDRON", "BUCKET", "MINECART", "BOAT", "LADDER",
+            "GRINDSTONE", "SMITHING_TABLE", "STONECUTTER", "LOOM", "COMPOSTER",
+            "CARTOGRAPHY_TABLE", "FLETCHING_TABLE", "BEEHIVE", "BEE_NEST", "LECTERN",
+            "BOOKSHELF", "BOOK", "PAPER", "MAP", "SHULKER_BOX", "SADDLE", "ARMOR_STAND");
+
+    private static final Set<String> BREWING_FRAGMENTS = Set.of(
+            "POTION", "BREWING_STAND", "BLAZE_POWDER", "FERMENTED_SPIDER_EYE",
+            "GLISTERING_MELON", "GLASS_BOTTLE", "DRAGON_BREATH", "TIPPED_ARROW",
+            "EXPERIENCE_BOTTLE");
 
     private static final Set<String> DECORATION_FRAGMENTS = Set.of(
             "BANNER", "CARPET", "BED", "CANDLE", "FLOWER", "PAINTING", "ITEM_FRAME",
@@ -148,9 +169,26 @@ public enum Category {
             // Never let classification break startup.
         }
 
+        for (String fragment : BREWING_FRAGMENTS) {
+            if (name.contains(fragment)) {
+                return BREWING;
+            }
+        }
         for (String fragment : REDSTONE_FRAGMENTS) {
             if (name.contains(fragment)) {
                 return REDSTONE_TECH;
+            }
+        }
+        for (String fragment : UTILITY_FRAGMENTS) {
+            if (name.contains(fragment)) {
+                return UTILITY;
+            }
+        }
+        // Natural terrain is checked before building blocks so tuff, calcite and
+        // basalt file as things you dig up rather than things you build with.
+        for (String fragment : NATURAL_FRAGMENTS) {
+            if (name.contains(fragment)) {
+                return NATURAL;
             }
         }
         for (String suffix : BUILDING_SUFFIXES) {
