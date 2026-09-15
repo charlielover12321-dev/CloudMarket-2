@@ -1,0 +1,97 @@
+name: CloudMarket
+version: '${project.version}'
+main: com.cloudmarket.CloudMarket
+api-version: '26.2'
+author: CloudMarket
+description: Dual economy - a stock-driven global cloud market plus independent player shop chests.
+softdepend: [floodgate, Vault]
+load: POSTWORLD
+
+# Downloaded from Maven Central by the server on first startup and loaded into a
+# classloader private to this plugin. This replaces bundling them in the jar, which
+# is not possible on a Java 25 toolchain (the shade plugin's ASM cannot read the
+# bytecode). Requires outbound internet access the first time the plugin loads.
+libraries:
+  - com.zaxxer:HikariCP:6.2.1
+  - org.xerial:sqlite-jdbc:3.47.1.0
+
+commands:
+  shop:
+    description: Open the global cloud market.
+    usage: /shop
+    permission: market.buy
+  buy:
+    description: Buy from the global cloud market without the GUI.
+    usage: /buy <item> <amount>
+    permission: market.buy
+  sell:
+    description: Sell raw materials to the global cloud market.
+    usage: /sell <hand|hotbar|all>
+    permission: market.sell
+  pay:
+    description: Send money to another player.
+    usage: /pay <player> <amount>
+    permission: market.pay
+  balance:
+    description: Check a balance.
+    usage: /balance [player]
+    aliases: [bal, money]
+    permission: market.balance
+  leaderboard:
+    description: Show the richest players.
+    usage: /leaderboard
+    aliases: [ldrbrd, baltop]
+    permission: market.leaderboard
+  shopchest:
+    description: Manage your personal shop chests.
+    usage: /shopchest <create|additem|removeitem|info|remove>
+    permission: market.shopchest
+  marketadmin:
+    description: Administer the cloud market.
+    usage: /marketadmin <setprice|stock|whitelist|autoconfig|info|reload>
+    aliases: [cmadmin]
+    permission: market.admin
+
+permissions:
+  market.buy:
+    default: true
+  market.sell:
+    default: true
+  market.pay:
+    default: true
+  market.balance:
+    default: true
+  market.balance.others:
+    default: true
+  market.leaderboard:
+    default: true
+  market.shopchest:
+    default: true
+  market.shopchest.bypass:
+    description: Open the raw inventory of any player's shop chest.
+    default: op
+  market.admin:
+    description: Full access to /marketadmin.
+    default: op
+    children:
+      market.admin.setprice: true
+      market.admin.stock: true
+      market.admin.whitelist: true
+      market.admin.autoconfig: true
+      market.admin.reload: true
+      market.admin.balance: true
+  market.admin.setprice:
+    default: op
+  market.admin.stock:
+    default: op
+  market.admin.whitelist:
+    default: op
+  market.admin.autoconfig:
+    default: op
+  market.admin.reload:
+    default: op
+  market.admin.balance:
+    default: op
+  market.limit.bypass:
+    description: Ignore per-hour sell caps.
+    default: op

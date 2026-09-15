@@ -1,0 +1,130 @@
+# CloudMarket - global cloud market items
+#
+# Only materials that survive the raw-material rule can appear here. Anything with
+# a value-add recipe is barred automatically; see craftable-overrides.yml to opt
+# specific items back in.
+#
+# Per item:
+#   basePrice        price when stock sits at equilibriumStock
+#   floorPrice       hard minimum, however much stock piles up
+#   ceilingPrice     hard maximum, however scarce it gets
+#   equilibriumStock stock level at which price equals basePrice
+#   initialStock     optional; seeds the cloud so day one is not empty
+#   category         WOOD / ORES / FOOD / MOB_DROPS / MISC
+#   enabled          set false to pull an item without deleting its config
+#
+# At zero stock the curve pays 2x basePrice, so a ceiling below 2x basePrice will
+# bind immediately. That is fine and often what you want.
+#
+# ON FLOOR PRICES AND FARMS
+# A floor price above zero on anything a player can farm without limit - crops,
+# bamboo, sugar cane, mob drops from a spawner - is an unlimited money source. The
+# curve will crash the price to the floor and then keep paying it out forever.
+# Those items ship with floorPrice: 0 below. Change that only if you also keep
+# limits.sell-per-item-per-hour switched on in economy.yml.
+#
+# This list is a starting point, not a balanced economy - tune it for your server.
+# Run /marketadmin autoconfig to add every other raw material the server knows
+# about, including anything a future game drop introduces.
+
+items:
+
+  # ----------------------------------------------------------------- Wood
+  OAK_LOG:      { category: WOOD, basePrice: 1.5, floorPrice: 0.3, ceilingPrice: 3.0, equilibriumStock: 8192 }
+  SPRUCE_LOG:   { category: WOOD, basePrice: 1.5, floorPrice: 0.3, ceilingPrice: 3.0, equilibriumStock: 8192 }
+  BIRCH_LOG:    { category: WOOD, basePrice: 1.5, floorPrice: 0.3, ceilingPrice: 3.0, equilibriumStock: 8192 }
+  JUNGLE_LOG:   { category: WOOD, basePrice: 1.8, floorPrice: 0.3, ceilingPrice: 3.6, equilibriumStock: 6144 }
+  ACACIA_LOG:   { category: WOOD, basePrice: 1.8, floorPrice: 0.3, ceilingPrice: 3.6, equilibriumStock: 6144 }
+  DARK_OAK_LOG: { category: WOOD, basePrice: 1.8, floorPrice: 0.3, ceilingPrice: 3.6, equilibriumStock: 6144 }
+  MANGROVE_LOG: { category: WOOD, basePrice: 2.0, floorPrice: 0.3, ceilingPrice: 4.0, equilibriumStock: 4096 }
+  CHERRY_LOG:   { category: WOOD, basePrice: 2.5, floorPrice: 0.4, ceilingPrice: 5.0, equilibriumStock: 3072 }
+  PALE_OAK_LOG: { category: WOOD, basePrice: 3.0, floorPrice: 0.4, ceilingPrice: 6.0, equilibriumStock: 2048 }
+  CRIMSON_STEM: { category: WOOD, basePrice: 3.0, floorPrice: 0.5, ceilingPrice: 6.0, equilibriumStock: 2048 }
+  WARPED_STEM:  { category: WOOD, basePrice: 3.0, floorPrice: 0.5, ceilingPrice: 6.0, equilibriumStock: 2048 }
+
+  # ------------------------------------------------------- Ores and minerals
+  RAW_IRON:     { category: ORES, basePrice: 6.0,  floorPrice: 1.5,  ceilingPrice: 12.0,  equilibriumStock: 4096 }
+  RAW_COPPER:   { category: ORES, basePrice: 3.0,  floorPrice: 0.6,  ceilingPrice: 6.0,   equilibriumStock: 6144 }
+  RAW_GOLD:     { category: ORES, basePrice: 12.0, floorPrice: 3.0,  ceilingPrice: 24.0,  equilibriumStock: 2048 }
+  COAL:         { category: ORES, basePrice: 4.0,  floorPrice: 0.8,  ceilingPrice: 8.0,   equilibriumStock: 6144 }
+  REDSTONE:     { category: ORES, basePrice: 5.0,  floorPrice: 1.0,  ceilingPrice: 10.0,  equilibriumStock: 4096 }
+  LAPIS_LAZULI: { category: ORES, basePrice: 8.0,  floorPrice: 2.0,  ceilingPrice: 16.0,  equilibriumStock: 3072 }
+  DIAMOND:      { category: ORES, basePrice: 60.0, floorPrice: 20.0, ceilingPrice: 120.0, equilibriumStock: 1024 }
+  EMERALD:      { category: ORES, basePrice: 45.0, floorPrice: 12.0, ceilingPrice: 90.0,  equilibriumStock: 1024 }
+  QUARTZ:       { category: ORES, basePrice: 5.0,  floorPrice: 1.0,  ceilingPrice: 10.0,  equilibriumStock: 4096 }
+  AMETHYST_SHARD: { category: ORES, basePrice: 10.0, floorPrice: 2.0, ceilingPrice: 20.0, equilibriumStock: 2048 }
+  ANCIENT_DEBRIS: { category: ORES, basePrice: 220.0, floorPrice: 80.0, ceilingPrice: 440.0, equilibriumStock: 256 }
+  FLINT:        { category: ORES, basePrice: 1.0,  floorPrice: 0.2,  ceilingPrice: 2.0,   equilibriumStock: 4096 }
+  CLAY_BALL:    { category: ORES, basePrice: 1.2,  floorPrice: 0.2,  ceilingPrice: 2.4,   equilibriumStock: 4096 }
+  OBSIDIAN:     { category: ORES, basePrice: 8.0,  floorPrice: 2.0,  ceilingPrice: 16.0,  equilibriumStock: 2048 }
+
+  # ------------------------------------------------------------------ Misc
+  # Stone, sand and dirt are effectively unlimited too, but they are slow enough to
+  # gather by hand that a small floor is survivable. Watch them anyway.
+  COBBLESTONE:  { category: MISC, basePrice: 0.15, floorPrice: 0.02, ceilingPrice: 0.3,  equilibriumStock: 32768 }
+  STONE:        { category: MISC, basePrice: 0.25, floorPrice: 0.04, ceilingPrice: 0.5,  equilibriumStock: 24576 }
+  DEEPSLATE:    { category: MISC, basePrice: 0.25, floorPrice: 0.04, ceilingPrice: 0.5,  equilibriumStock: 24576 }
+  SAND:         { category: MISC, basePrice: 0.4,  floorPrice: 0.05, ceilingPrice: 0.8,  equilibriumStock: 16384 }
+  RED_SAND:     { category: MISC, basePrice: 0.5,  floorPrice: 0.05, ceilingPrice: 1.0,  equilibriumStock: 12288 }
+  GRAVEL:       { category: MISC, basePrice: 0.4,  floorPrice: 0.05, ceilingPrice: 0.8,  equilibriumStock: 16384 }
+  DIRT:         { category: MISC, basePrice: 0.1,  floorPrice: 0.01, ceilingPrice: 0.2,  equilibriumStock: 32768 }
+  GRASS_BLOCK:  { category: MISC, basePrice: 0.3,  floorPrice: 0.03, ceilingPrice: 0.6,  equilibriumStock: 12288 }
+  NETHERRACK:   { category: MISC, basePrice: 0.1,  floorPrice: 0.01, ceilingPrice: 0.2,  equilibriumStock: 32768 }
+  SOUL_SAND:    { category: MISC, basePrice: 1.0,  floorPrice: 0.15, ceilingPrice: 2.0,  equilibriumStock: 6144 }
+  END_STONE:    { category: MISC, basePrice: 1.5,  floorPrice: 0.2,  ceilingPrice: 3.0,  equilibriumStock: 4096 }
+  SNOWBALL:     { category: MISC, basePrice: 0.1,  floorPrice: 0.0,  ceilingPrice: 0.2,  equilibriumStock: 16384 }
+  ICE:          { category: MISC, basePrice: 0.8,  floorPrice: 0.1,  ceilingPrice: 1.6,  equilibriumStock: 8192 }
+
+  # ------------------------------------------------------------ Food and crops
+  # Everything here is farmable without limit, so every floor price is zero.
+  WHEAT:        { category: FOOD, basePrice: 0.8, floorPrice: 0.0, ceilingPrice: 1.6, equilibriumStock: 12288 }
+  POTATO:       { category: FOOD, basePrice: 0.7, floorPrice: 0.0, ceilingPrice: 1.4, equilibriumStock: 12288 }
+  CARROT:       { category: FOOD, basePrice: 0.7, floorPrice: 0.0, ceilingPrice: 1.4, equilibriumStock: 12288 }
+  BEETROOT:     { category: FOOD, basePrice: 0.9, floorPrice: 0.0, ceilingPrice: 1.8, equilibriumStock: 8192 }
+  SUGAR_CANE:   { category: FOOD, basePrice: 0.5, floorPrice: 0.0, ceilingPrice: 1.0, equilibriumStock: 16384 }
+  BAMBOO:       { category: FOOD, basePrice: 0.3, floorPrice: 0.0, ceilingPrice: 0.6, equilibriumStock: 24576 }
+  CACTUS:       { category: FOOD, basePrice: 0.5, floorPrice: 0.0, ceilingPrice: 1.0, equilibriumStock: 16384 }
+  KELP:         { category: FOOD, basePrice: 0.3, floorPrice: 0.0, ceilingPrice: 0.6, equilibriumStock: 24576 }
+  MELON_SLICE:  { category: FOOD, basePrice: 0.3, floorPrice: 0.0, ceilingPrice: 0.6, equilibriumStock: 24576 }
+  PUMPKIN:      { category: FOOD, basePrice: 1.0, floorPrice: 0.0, ceilingPrice: 2.0, equilibriumStock: 8192 }
+  COCOA_BEANS:  { category: FOOD, basePrice: 0.8, floorPrice: 0.0, ceilingPrice: 1.6, equilibriumStock: 8192 }
+  NETHER_WART:  { category: FOOD, basePrice: 2.0, floorPrice: 0.0, ceilingPrice: 4.0, equilibriumStock: 4096 }
+  SWEET_BERRIES: { category: FOOD, basePrice: 0.6, floorPrice: 0.0, ceilingPrice: 1.2, equilibriumStock: 12288 }
+  GLOW_BERRIES: { category: FOOD, basePrice: 1.2, floorPrice: 0.0, ceilingPrice: 2.4, equilibriumStock: 6144 }
+  CHORUS_FRUIT: { category: FOOD, basePrice: 2.0, floorPrice: 0.0, ceilingPrice: 4.0, equilibriumStock: 3072 }
+  BEEF:         { category: FOOD, basePrice: 1.5, floorPrice: 0.0, ceilingPrice: 3.0, equilibriumStock: 6144 }
+  PORKCHOP:     { category: FOOD, basePrice: 1.5, floorPrice: 0.0, ceilingPrice: 3.0, equilibriumStock: 6144 }
+  CHICKEN:      { category: FOOD, basePrice: 1.2, floorPrice: 0.0, ceilingPrice: 2.4, equilibriumStock: 6144 }
+  MUTTON:       { category: FOOD, basePrice: 1.2, floorPrice: 0.0, ceilingPrice: 2.4, equilibriumStock: 6144 }
+  RABBIT:       { category: FOOD, basePrice: 2.0, floorPrice: 0.0, ceilingPrice: 4.0, equilibriumStock: 3072 }
+  COD:          { category: FOOD, basePrice: 1.2, floorPrice: 0.0, ceilingPrice: 2.4, equilibriumStock: 6144 }
+  SALMON:       { category: FOOD, basePrice: 1.5, floorPrice: 0.0, ceilingPrice: 3.0, equilibriumStock: 6144 }
+  TROPICAL_FISH: { category: FOOD, basePrice: 4.0, floorPrice: 0.0, ceilingPrice: 8.0, equilibriumStock: 1536 }
+  PUFFERFISH:   { category: FOOD, basePrice: 5.0, floorPrice: 0.0, ceilingPrice: 10.0, equilibriumStock: 1024 }
+  APPLE:        { category: FOOD, basePrice: 2.0, floorPrice: 0.0, ceilingPrice: 4.0, equilibriumStock: 4096 }
+  EGG:          { category: FOOD, basePrice: 0.8, floorPrice: 0.0, ceilingPrice: 1.6, equilibriumStock: 8192 }
+  HONEYCOMB:    { category: FOOD, basePrice: 2.5, floorPrice: 0.0, ceilingPrice: 5.0, equilibriumStock: 3072 }
+
+  # -------------------------------------------------------------- Mob drops
+  # Spawner and mob farms make these unlimited too. Floors stay at zero.
+  ROTTEN_FLESH:     { category: MOB_DROPS, basePrice: 0.3, floorPrice: 0.0, ceilingPrice: 0.6,  equilibriumStock: 24576 }
+  BONE:             { category: MOB_DROPS, basePrice: 1.0, floorPrice: 0.0, ceilingPrice: 2.0,  equilibriumStock: 12288 }
+  STRING:           { category: MOB_DROPS, basePrice: 1.0, floorPrice: 0.0, ceilingPrice: 2.0,  equilibriumStock: 12288 }
+  SPIDER_EYE:       { category: MOB_DROPS, basePrice: 1.5, floorPrice: 0.0, ceilingPrice: 3.0,  equilibriumStock: 8192 }
+  GUNPOWDER:        { category: MOB_DROPS, basePrice: 3.0, floorPrice: 0.0, ceilingPrice: 6.0,  equilibriumStock: 6144 }
+  ENDER_PEARL:      { category: MOB_DROPS, basePrice: 12.0, floorPrice: 0.0, ceilingPrice: 24.0, equilibriumStock: 2048 }
+  BLAZE_ROD:        { category: MOB_DROPS, basePrice: 15.0, floorPrice: 0.0, ceilingPrice: 30.0, equilibriumStock: 1536 }
+  SLIME_BALL:       { category: MOB_DROPS, basePrice: 4.0, floorPrice: 0.0, ceilingPrice: 8.0,  equilibriumStock: 4096 }
+  MAGMA_CREAM:      { category: MOB_DROPS, basePrice: 6.0, floorPrice: 0.0, ceilingPrice: 12.0, equilibriumStock: 3072 }
+  GHAST_TEAR:       { category: MOB_DROPS, basePrice: 30.0, floorPrice: 0.0, ceilingPrice: 60.0, equilibriumStock: 512 }
+  PHANTOM_MEMBRANE: { category: MOB_DROPS, basePrice: 18.0, floorPrice: 0.0, ceilingPrice: 36.0, equilibriumStock: 768 }
+  LEATHER:          { category: MOB_DROPS, basePrice: 2.5, floorPrice: 0.0, ceilingPrice: 5.0,  equilibriumStock: 6144 }
+  FEATHER:          { category: MOB_DROPS, basePrice: 1.0, floorPrice: 0.0, ceilingPrice: 2.0,  equilibriumStock: 12288 }
+  INK_SAC:          { category: MOB_DROPS, basePrice: 1.5, floorPrice: 0.0, ceilingPrice: 3.0,  equilibriumStock: 8192 }
+  GLOW_INK_SAC:     { category: MOB_DROPS, basePrice: 5.0, floorPrice: 0.0, ceilingPrice: 10.0, equilibriumStock: 3072 }
+  PRISMARINE_SHARD: { category: MOB_DROPS, basePrice: 5.0, floorPrice: 0.0, ceilingPrice: 10.0, equilibriumStock: 3072 }
+  PRISMARINE_CRYSTALS: { category: MOB_DROPS, basePrice: 7.0, floorPrice: 0.0, ceilingPrice: 14.0, equilibriumStock: 2048 }
+  RABBIT_HIDE:      { category: MOB_DROPS, basePrice: 2.0, floorPrice: 0.0, ceilingPrice: 4.0,  equilibriumStock: 6144 }
+  RABBIT_FOOT:      { category: MOB_DROPS, basePrice: 20.0, floorPrice: 0.0, ceilingPrice: 40.0, equilibriumStock: 512 }
+  SHULKER_SHELL:    { category: MOB_DROPS, basePrice: 90.0, floorPrice: 0.0, ceilingPrice: 180.0, equilibriumStock: 256 }
+  NAUTILUS_SHELL:   { category: MOB_DROPS, basePrice: 40.0, floorPrice: 0.0, ceilingPrice: 80.0, equilibriumStock: 384 }

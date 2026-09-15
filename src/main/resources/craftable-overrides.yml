@@ -1,0 +1,37 @@
+# CloudMarket - craftable overrides
+#
+# The plugin scans every recipe on your server at startup and bars any material
+# that has a value-add recipe from the global cloud market. That is what makes
+# "craft planks from logs and sell them for more than the logs cost" structurally
+# impossible instead of a price-tuning problem.
+#
+# One subtlety the scan already handles for you: almost every valuable raw material
+# is technically a recipe output, because storage blocks uncraft.
+#
+#     9 coal      -> 1 coal block        and    1 coal block      -> 9 coal
+#     9 raw iron  -> 1 raw iron block    and    1 raw iron block  -> 9 raw iron
+#     9 wheat     -> 1 hay bale          and    1 hay bale        -> 9 wheat
+#
+# A naive "bar every recipe output" rule would knock out coal, diamond, emerald,
+# lapis, redstone, raw iron/copper/gold, slime balls and wheat. CloudMarket detects
+# these reversible pairs and treats them as value-neutral, so they stay sellable
+# and you do not need to list them here. Run /marketadmin info to see how many were
+# kept this way.
+#
+# What is left for this file is genuinely processed goods you have decided to treat
+# as raw anyway - most commonly smelted ingots.
+#
+# Anything listed here ALSO needs its own entry in market-items.yml. Whitelisting
+# only makes an item eligible; it does not give it a price.
+#
+# Ships empty on purpose. Add items deliberately, one at a time.
+#
+# Example:
+# whitelist:
+#   - IRON_INGOT
+#   - GOLD_INGOT
+#   - COPPER_INGOT
+#   - GLASS
+#   - BRICK
+
+whitelist: []

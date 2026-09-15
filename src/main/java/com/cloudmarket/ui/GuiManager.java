@@ -1,0 +1,224 @@
+package com.cloudmarket.ui;
+
+import com.cloudmarket.CloudMarket;
+import com.cloudmarket.market.Category;
+import com.cloudmarket.market.MarketItem;
+import com.cloudmarket.market.PricingEngine;
+import com.cloudmarket.shops.ShopChest;
+import com.cloudmarket.util.Fmt;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Builds every inventory screen the plugin shows.
+ *
+ * <p>All screens are plain chest inventories. Geyser translates those to Bedrock
+ * container UIs without help, so one code path serves both editions. The only place
+ * the editions diverge is free-text entry, which is routed through
+ * {@link BedrockBridge}.
+ */
+public final class GuiManager {
+
+    private static final int ROWS = 6;
+    private static final int SIZE = ROWS * 9;
+    private static final int CONTENT_SLOTS = 45;
+
+    private final CloudMarket plugin;
+
+    public GuiManager(CloudMarket plugin) {
+        this.plugin = plugin;
+    }
+
+    // ---------------------------------------------------------- global market
+
+    public void openCategories(Player player) {
+        MarketHolder holder = MarketHolder.categories();
+        Inventory inventory = Bukkit.createInventory(holder, 27,
+                plugin.configs().messages().bare("gui.market-title", Map.of()));
+        holder.setInventory(inventory);
+
+        Map<Category, Integer> counts = plugin.market().categoryCounts();
+        int[] slots = {10, 11, 12, 13, 14};
+        Category[] categories = Category.values();
+        for (int index = 0; index < categories.length && index < slots.length; index++) {
+            Category category = categories[index];
+            inventory.setItem(slots[index], icon(category.getIcon(),
+                    "&b&l" + category.getDisplayName(),
+                    List.of("&7" + counts.getOrDefault(category, 0) + " items available",
+                            "",
+                            "&eClick to browse")));
+        }
+        inventory.setItem(22, balanceIcon(player));
+        player.openInventory(inventory);
+    }
+
+    public void openCategory(Player player, Category category, int page) {
+        List<MarketItem> all = plugin.market().byCategory(category);
+        int pages = Math.max(1, (int) Math.ceil(all.size() / (double) CONTENT_SLOTS));
+        int safePage = Math.max(0, Math.min(page, pages - 1));
+
+        MarketHolder holder = MarketHolder.items(category, safePage);
+        Inventory inventory = Bukkit.createInventory(holder, SIZE,
+                plugin.configs().messages().bare("gui.category-title", Map.of(
+                        "category", category.getDisplayName(),
+                        "page", String.valueOf(safePage + 1),
+                        "pages", String.valueOf(pages))));
+        holder.setInventory(inventory);
+
+        int start = safePage * CONTENT_SLOTS;
+        for (int offset = 0; offset < CONTENT_SLOTS && start + offset < all.size(); offset++) {
+            inventory.setItem(offset, marketIcon(player, all.get(start + offset)));
+        }
+
+        inventory.setItem(45, icon(Material.ARROW, "&e&lBack", List.of("&7Return to categories")));
+        if (safePage > 0) {
+            inventory.setItem(48, icon(Material.PAPER, "&e&lPrevious page", List.of()));
+        }
+        if (safePage < pages - 1) {
+            inventory.setItem(50, icon(Material.PAPER, "&e&lNext page", List.of()));
+        }
+        inventory.setItem(49, balanceIcon(player));
+        player.openInventory(inventory);
+    }
+
+    /**
+     * One market item, showing what it would cost to buy one and what the player
+     * would be paid for one right now. Both figures come from the same batch pricer
+     * used by the real transaction, so the number on the icon is the number the
+     * player gets rather than an approximation from the spot curve.
+     */
+    private ItemStack marketIcon(Player player, MarketItem item) {
+        long stock = item.getStock();
+        BigDecimal spot = PricingEngine.spotPrice(item, stock);
+        String symbol = plugin.configs().currencySymbol();
+
+        List<String> lore = new ArrayList<>();
+        lore.add("&7Stock in the cloud: &f" + Fmt.count(stock));
+        lore.add("&7Current price: &a" + symbol + Fmt.money(spot));
+        lore.add("");
+
+        if (stock > 0) {
+            PricingEngine.Quote buyOne =
+                    PricingEngine.quoteBuy(item, stock, 1, plugin.configs().taxRate());
+            lore.add("&7Buy 1 for &c" + symbol + Fmt.money(buyOne.net()));
+            int stackSize = Math.min(item.getMaterial().getMaxStackSize(), (int) Math.min(stock, 64L));
+            if (stackSize > 1) {
+                PricingEngine.Quote buyStack =
+                        PricingEngine.quoteBuy(item, stock, stackSize, plugin.configs().taxRate());
+                lore.add("&7Buy " + stackSize + " for &c" + symbol + Fmt.money(buyStack.net()));
+            }
+        } else {
+            lore.add("&8Nobody has sold any of this yet.");
+        }
+
+        PricingEngine.Quote sellOne =
+                PricingEngine.quoteSell(item, stock, 1, plugin.configs().taxRate());
+        lore.add("&7Sell 1 for &a" + symbol + Fmt.money(sellOne.net()));
+        lore.add("");
+        lore.add("&eLeft-click &7buy one");
+        lore.add("&eShift-left &7buy a stack");
+        lore.add("&eRight-click &7choose an amount");
+
+        if (plugin.market().limiter().isEnabled() && !player.hasPermission("market.limit.bypass")) {
+            int remaining = plugin.market().limiter()
+                    .remaining(player.getUniqueId(), item.getMaterial());
+            lore.add("");
+            lore.add("&8You may sell " + Fmt.count(remaining) + " more this hour.");
+        }
+
+        return icon(item.getMaterial(), "&f&l" + Fmt.pretty(item.getMaterial()), lore);
+    }
+
+    // ------------------------------------------------------------- shop chests
+
+    /**
+     * @param preview true when the owner (or an admin) is looking at their own shop;
+     *                the buy hints are replaced with a reminder about how to restock
+     */
+    public void openShopChest(Player player, ShopChest chest, boolean preview) {
+        List<Material> listed = plugin.shopChests().listedMaterials(chest);
+        MarketHolder holder = MarketHolder.shopChest(chest);
+        int rows = Math.max(3, Math.min(6, (int) Math.ceil(listed.size() / 9.0d) + 1));
+        Inventory inventory = Bukkit.createInventory(holder, rows * 9,
+                plugin.configs().messages().bare("gui.shopchest-title", Map.of(
+                        "owner", plugin.economy().nameOf(chest.getOwner()))));
+        holder.setInventory(inventory);
+
+        String symbol = plugin.configs().currencySymbol();
+        int slot = 0;
+        for (Material material : listed) {
+            if (slot >= (rows - 1) * 9) {
+                break;
+            }
+            BigDecimal price = chest.priceOf(material);
+            int stock = plugin.shopChests().stockOf(chest, material);
+            List<String> lore = new ArrayList<>();
+            lore.add("&7Price: &a" + symbol + Fmt.money(price) + " &7each");
+            lore.add("&7In stock: &f" + Fmt.count(stock));
+            lore.add("");
+            if (preview) {
+                lore.add("&8This is your shop.");
+                lore.add("&8Sneak + right-click the chest to restock.");
+            } else if (stock <= 0) {
+                lore.add("&cOut of stock.");
+            } else {
+                lore.add("&eLeft-click &7buy one");
+                lore.add("&eShift-left &7buy a stack");
+                lore.add("&eRight-click &7choose an amount");
+            }
+            inventory.setItem(slot++, icon(material, "&f&l" + Fmt.pretty(material), lore));
+        }
+
+        if (listed.isEmpty()) {
+            inventory.setItem(inventory.getSize() / 2, icon(Material.BARRIER, "&cNothing for sale",
+                    preview
+                            ? List.of("&7Hold an item and run", "&e/shopchest additem <price>")
+                            : List.of("&7The owner has not listed anything yet.")));
+        }
+
+        inventory.setItem(inventory.getSize() - 5, balanceIcon(player));
+        player.openInventory(inventory);
+    }
+
+    // ------------------------------------------------------------------ pieces
+
+    private ItemStack balanceIcon(Player player) {
+        return icon(Material.SUNFLOWER, "&6&lYour balance",
+                List.of("&f" + plugin.configs().currencySymbol()
+                        + Fmt.money(plugin.economy().getBalance(player.getUniqueId()))));
+    }
+
+    /**
+     * Build a display icon. Falls back to a barrier if the material cannot exist as
+     * an item, which keeps a config typo or a block-only material from throwing
+     * while a player has the menu open.
+     */
+    private ItemStack icon(Material material, String name, List<String> lore) {
+        Material safe = material;
+        if (safe == null || safe.isAir() || !safe.isItem()) {
+            safe = Material.BARRIER;
+        }
+        ItemStack stack = new ItemStack(safe);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Fmt.color(name));
+            List<Component> lines = new ArrayList<>();
+            for (String line : lore) {
+                lines.add(Fmt.color(line));
+            }
+            meta.lore(lines);
+            stack.setItemMeta(meta);
+        }
+        return stack;
+    }
+}

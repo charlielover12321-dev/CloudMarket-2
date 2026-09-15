@@ -1,0 +1,98 @@
+# CloudMarket - all player-facing text.
+# & colour codes. {placeholders} are substituted by the plugin.
+
+prefix: "&8[&bCloudMarket&8] &r"
+
+general:
+  players-only: "&cThat command only works in game."
+  no-permission: "&cYou do not have permission to do that."
+  unknown-player: "&cNo player called &f{player}&c has ever joined."
+  unknown-item: "&c&f{item}&c is not an item this server knows about."
+
+input:
+  chat-number: "&e{label} &7Type a number between &f{min}&7 and &f{max}&7 in chat, or type &fcancel&7."
+  chat-price: "&e{label} &7Type a price in chat, or type &fcancel&7."
+  not-a-number: "&cThat is not a valid number."
+  cancelled: "&7Cancelled."
+
+market:
+  buy-usage: "&7Usage: &f/buy <item> [amount]"
+  sell-usage: "&7Usage: &f/sell <hand|hotbar|all>"
+  empty-hand: "&cYou are not holding anything."
+  modified-item: "&cThat item is enchanted, renamed or has lore, so it is worth more than its material. Sell it on a shop chest instead."
+  nothing-sold: "&7Nothing there could be sold to the cloud market."
+  craftable-blocked: "&c{item} is crafted, so the cloud market does not take it. Only raw materials are traded there - try a player shop chest."
+  not-configured: "&cThe cloud market has no price set for {item} yet."
+  disabled: "&c{item} is not currently trading."
+  no-stock: "&cNobody has sold any {item} to the cloud yet, so there is none to buy."
+  cannot-afford: "&cYou cannot afford that."
+  inventory-full: "&cYou do not have room for that."
+  rate-limited: "&cYou have hit your hourly sell limit for {item}. Try again later."
+  sold: "&aSold &f{amount}x {item} &afor &f{symbol}{total}&a (&7{symbol}{each} each, {symbol}{tax} tax&a)."
+  sold-line: "  &7{amount}x &f{item} &7-> &a{symbol}{total}"
+  sold-hotbar-summary: "&aSold &f{stacks}&a kinds of item from your hotbar for &f{symbol}{total}&a."
+  sold-all-summary: "&aSold &f{stacks}&a kinds of item from your inventory for &f{symbol}{total}&a."
+  bought: "&aBought &f{amount}x {item} &afor &f{symbol}{total}&a (&7{symbol}{tax} tax&a)."
+
+pay:
+  usage: "&7Usage: &f/pay <player> <amount>"
+  self: "&cYou cannot pay yourself."
+  bad-amount: "&cEnter a positive amount with at most two decimal places."
+  below-minimum: "&cThe smallest transfer is {symbol}{minimum}."
+  cannot-afford: "&cYou do not have that much."
+  confirm-prompt: "&eSending &f{symbol}{amount}&e to &f{player}&e. Type &f/pay confirm&e within {seconds}s to go ahead."
+  nothing-to-confirm: "&cYou have no pending transfer to confirm."
+  sent: "&aSent &f{symbol}{amount}&a to &f{player}&a."
+  received: "&aReceived &f{symbol}{amount}&a from &f{player}&a."
+
+balance:
+  own: "&7Balance: &a{symbol}{balance}"
+  other: "&7{player}&7's balance: &a{symbol}{balance}"
+
+leaderboard:
+  empty: "&7Nobody has a balance yet."
+  header: "&8&m---&r &b&lRichest players &8&m---"
+  line: "&7{rank}. &f{player} &8- &a{symbol}{balance}"
+
+shopchest:
+  usage: "&7Usage: &f/shopchest <create|additem|removeitem|info|remove>"
+  look-at-chest: "&cLook directly at a chest first."
+  already-registered: "&cThat chest is already a shop."
+  not-registered: "&cThat chest is not a shop. Use &f/shopchest create&c first."
+  not-yours: "&cThat is not your shop chest."
+  create-failed: "&cCould not register that chest. Check the server console."
+  created: "&aShop chest created. Hold an item and run &f/shopchest additem <price>&a to list it."
+  hold-item: "&cHold the item you want to price."
+  price-set: "&aListed &f{item}&a at &f{symbol}{price}&a each."
+  price-removed: "&aRemoved &f{item}&a from this shop."
+  removed: "&aThis chest is a normal chest again."
+  removed-by-break: "&7Shop chest un-registered."
+  cannot-extend: "&cYou cannot extend somebody else's shop chest."
+  own-shop: "&7This is your own shop. Sneak + right-click the chest to restock it."
+  out-of-stock: "&cThe shop has run out of {item}."
+  not-listed: "&cThat item is not for sale here."
+  bought: "&aBought &f{amount}x {item} &afrom &f{owner}&a for &f{symbol}{total}&a."
+  sold-notify: "&a{buyer} bought &f{amount}x {item}&a from your shop for &f{symbol}{total}&a."
+  info-header: "&7Shop owned by &f{owner}&7:"
+  info-line: "  &f{item} &7- &a{symbol}{price} &7each, &f{stock}&7 in stock"
+
+admin:
+  usage: "&7Usage: &f/marketadmin <setprice|stock|whitelist|autoconfig|info|reload>"
+  setprice-usage: "&7Usage: &f/marketadmin setprice <item> <base> <floor> <ceiling> <equilibrium>"
+  stock-usage: "&7Usage: &f/marketadmin stock <item> <amount>"
+  whitelist-usage: "&7Usage: &f/marketadmin whitelist <item>"
+  bad-price-range: "&cPrices must be positive, the ceiling must be at least the base price, and the floor at most the base price."
+  craftable-needs-whitelist: "&c{item} is a crafted item. Whitelist it first with &f/marketadmin whitelist&c."
+  price-set: "&aSet &f{item}&a: base {symbol}{base}, floor {symbol}{floor}, ceiling {symbol}{ceiling}, equilibrium {equilibrium}."
+  farmable-floor-warning: "&e&lHeads up: &e{item} can be farmed without limit, and its floor price is above zero. That is an unlimited money source unless you keep an hourly sell cap on. Consider floorPrice 0."
+  stock-set: "&aCloud stock for &f{item}&a is now &f{amount}&a."
+  whitelisted: "&a{item} may now be traded. Give it a price with &f/marketadmin setprice&a."
+  autoconfig-done: "&aAdded &f{added}&a new materials to market-items.yml ({state}). Review the prices before going live."
+  item-info: "&7{item} &8| &7{category}&8 | &7base &f{symbol}{base}&7, floor &f{symbol}{floor}&7, ceiling &f{symbol}{ceiling}&7, equilibrium &f{equilibrium}&7, stock &f{stock}"
+  summary: "&7Market: &f{items}&7 tradable, &f{barred}&7 barred as craftable, &f{rescued}&7 kept by the storage-block rule, from &f{recipes}&7 recipes. &f{chests}&7 shop chests. Supply &a{symbol}{supply}&7, burned &c{symbol}{burned}&7."
+  reloaded: "&aConfiguration reloaded."
+
+gui:
+  market-title: "&8Cloud Market"
+  category-title: "&8{category} &7({page}/{pages})"
+  shopchest-title: "&8{owner}'s shop"

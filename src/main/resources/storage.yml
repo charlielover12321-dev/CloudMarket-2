@@ -1,0 +1,18 @@
+# CloudMarket - storage
+#
+# sqlite: zero setup, a single file in the plugin folder. Right for one server.
+# mysql:  use when several servers must share one economy.
+
+type: sqlite
+
+sqlite:
+  file: cloudmarket.db
+
+mysql:
+  host: localhost
+  port: 3306
+  database: cloudmarket
+  username: root
+  password: ""
+  use-ssl: false
+  pool-size: 6

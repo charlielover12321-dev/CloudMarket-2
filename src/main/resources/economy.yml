@@ -1,0 +1,49 @@
+# CloudMarket - economy settings
+# Reload with /marketadmin reload. No restart needed.
+
+currency:
+  symbol: "$"
+  name-singular: "Coin"
+  name-plural: "Coins"
+
+# Balance given to a player the first time the plugin sees them.
+starting-balance: 250.0
+
+# Charged on every cloud-market buy AND sell. The money is destroyed, not paid to
+# anyone. This is what stops a player selling a stack and immediately buying it
+# back for a profit off rounding, and it is the main brake on long-term inflation.
+# A round trip costs the player roughly twice this percentage.
+tax-percent: 4.0
+
+pay:
+  minimum: 0.01
+  # Transfers above this ask for /pay confirm first.
+  confirm-above: 10000.0
+  confirm-timeout-seconds: 30
+
+limits:
+  # Most units of a single material one player may sell to the cloud per hour.
+  # 2304 is 36 stacks. Set to 0 to disable.
+  #
+  # Worth keeping on. The bonding curve stops one player getting a good price for
+  # a huge dump, but it does not stop them parking an item at its floor price for
+  # everybody else. This does.
+  sell-per-item-per-hour: 2304
+
+leaderboard:
+  refresh-seconds: 60
+  size: 10
+
+# How often balances and market stock are written to the database.
+# A crash loses at most this much; everything is also saved on clean shutdown.
+autosave-seconds: 300
+
+bedrock:
+  # Send Bedrock players a native input form when they need to type a number or a
+  # price. Turn this off only if you are debugging Floodgate - the fallback is a
+  # chat prompt, which works but is clumsier on a touchscreen.
+  use-native-forms: true
+
+vault:
+  # Let other plugins read and change balances through Vault.
+  register-as-provider: true

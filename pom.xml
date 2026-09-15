@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.cloudmarket</groupId>
+    <artifactId>CloudMarket</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>CloudMarket</name>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>25</maven.compiler.release>
+        <!-- Pinned to the build reported by your Bisect panel. Change if you update Paper. -->
+        <paper.version>26.2.build.123-stable</paper.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>opencollab-snapshot</id>
+            <url>https://repo.opencollab.dev/maven-snapshots/</url>
+        </repository>
+        <repository>
+            <id>opencollab-release</id>
+            <url>https://repo.opencollab.dev/maven-releases/</url>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Bedrock support. Provided: supplied at runtime by the Floodgate plugin. -->
+        <dependency>
+            <groupId>org.geysermc.floodgate</groupId>
+            <artifactId>api</artifactId>
+            <version>2.2.4-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Optional Vault bridge so other plugins can read/write balances. -->
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>1.7.1</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--
+          Storage layer. Scope is 'provided' because these are NOT bundled into the
+          jar: they are declared in plugin.yml under 'libraries' and downloaded by
+          the server at startup. See the note on the build section below.
+        -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>6.2.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.47.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>CloudMarket-${project.version}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>plugin.yml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>plugin.yml</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <!--
+              No maven-shade-plugin here, deliberately.
+
+              Shade rewrites class files with ASM to apply relocations, and the ASM
+              bundled with shade cannot read Java 25 bytecode (class file major
+              version 69). Since Paper 26.2 requires a Java 25 toolchain, every class
+              this project compiles trips it, and the reported Java 25 fix in shade
+              3.6.1 does not resolve it.
+
+              Instead, HikariCP and sqlite-jdbc are declared under 'libraries' in
+              plugin.yml. Paper resolves and loads them from Maven Central at startup
+              into an isolated classloader for this plugin. That removes the shade
+              step, keeps the jar small, and sidesteps the ASM problem completely.
+
+              Trade-off: the server needs outbound internet access the first time the
+              plugin starts, to download those two libraries. They are cached
+              afterwards. If your host blocks that, say so and I will switch the
+              build back to shading with an explicitly overridden ASM version.
+            -->
+        </plugins>
+    </build>
+</project>
