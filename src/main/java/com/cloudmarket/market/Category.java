@@ -153,7 +153,7 @@ public enum Category {
             "ENCHANTING_TABLE", "CAULDRON", "BUCKET", "MINECART", "BOAT", "LADDER",
             "GRINDSTONE", "SMITHING_TABLE", "STONECUTTER", "LOOM", "COMPOSTER",
             "CARTOGRAPHY_TABLE", "FLETCHING_TABLE", "BEEHIVE", "BEE_NEST", "LECTERN",
-            "HARNESS", "BUNDLE", "MINECART", "RAIL_", "MOJANG_BANNER_PATTERN",
+            "HARNESS", "BUNDLE", "MOJANG_BANNER_PATTERN",
             "BOOKSHELF", "BOOK", "PAPER", "MAP", "SHULKER_BOX", "SADDLE", "ARMOR_STAND");
 
     private static final Set<String> BREWING_FRAGMENTS = Set.of(

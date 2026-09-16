@@ -115,7 +115,7 @@ public final class ItemRarity {
             "ZOMBIE_HORSE", "MULE", "LLAMA", "TRADER_LLAMA", "PANDA", "POLAR_BEAR",
             "TURTLE", "DOLPHIN", "AXOLOTL", "GLOW_SQUID", "GOAT", "FROG", "TADPOLE",
             "ARMADILLO", "WANDERING_TRADER", "VILLAGER", "ZOMBIE_VILLAGER", "STRIDER",
-            "SKELETON_HORSE", "PARROT", "OCELOT", "FOX");
+            "PARROT", "OCELOT", "FOX");
 
     /** Common mobs: everything you trip over in the first hour. */
     private static final double COMMON_EGG_PRICE = 50.0d;
