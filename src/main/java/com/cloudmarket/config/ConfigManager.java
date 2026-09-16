@@ -7,7 +7,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -49,11 +53,79 @@ public final class ConfigManager {
         storageFile = prepare("storage.yml");
         messagesFile = prepare("messages.yml");
 
-        economy = YamlConfiguration.loadConfiguration(economyFile);
+        // Merge in any keys the shipped defaults have but the live file lacks.
+        //
+        // saveResource() only writes a file that does not already exist, so an
+        // upgraded server keeps its original config forever and never gains keys
+        // added by a later version. That is how you end up with
+        // "[missing message: auction.confirm-prompt]" on a working install: the
+        // key exists in the jar and not on disk.
+        economy = loadMerging(economyFile, "economy.yml");
+        overrides = loadMerging(overridesFile, "craftable-overrides.yml");
+        storage = loadMerging(storageFile, "storage.yml");
+        messages.load(loadMerging(messagesFile, "messages.yml"));
+
+        // market-items.yml is deliberately NOT merged wholesale. It is the admin's
+        // file, full of hand-tuned prices, and copying the shipped defaults back in
+        // would resurrect entries they had removed. Only the structural keys are
+        // ensured.
         marketItems = YamlConfiguration.loadConfiguration(marketItemsFile);
-        overrides = YamlConfiguration.loadConfiguration(overridesFile);
-        storage = YamlConfiguration.loadConfiguration(storageFile);
-        messages.load(YamlConfiguration.loadConfiguration(messagesFile));
+        ensureListKey(marketItems, marketItemsFile, "blacklist");
+        ensureListKey(marketItems, marketItemsFile, "unblock");
+    }
+
+    /**
+     * Load a config file, adding any keys present in the jar's copy but missing
+     * from the live one. Existing values are never overwritten.
+     */
+    private FileConfiguration loadMerging(File file, String resourceName) {
+        FileConfiguration live = YamlConfiguration.loadConfiguration(file);
+        InputStream stream = plugin.getResource(resourceName);
+        if (stream == null) {
+            return live;
+        }
+        YamlConfiguration shipped;
+        try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            shipped = YamlConfiguration.loadConfiguration(reader);
+        } catch (IOException e) {
+            return live;
+        }
+
+        List<String> added = new ArrayList<>();
+        for (String key : shipped.getKeys(true)) {
+            if (shipped.isConfigurationSection(key)) {
+                continue;
+            }
+            if (!live.contains(key)) {
+                live.set(key, shipped.get(key));
+                added.add(key);
+            }
+        }
+        if (added.isEmpty()) {
+            return live;
+        }
+        try {
+            live.save(file);
+            plugin.getLogger().info("[CloudMarket] " + resourceName + ": added " + added.size()
+                    + " new setting(s) introduced by this version"
+                    + (added.size() <= 6 ? " (" + String.join(", ", added) + ")" : "") + ".");
+        } catch (IOException e) {
+            plugin.getLogger().warning("[CloudMarket] Could not update " + resourceName + ": "
+                    + e.getMessage());
+        }
+        return live;
+    }
+
+    private void ensureListKey(FileConfiguration config, File file, String key) {
+        if (config.contains(key)) {
+            return;
+        }
+        config.set(key, new ArrayList<String>());
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            plugin.getLogger().warning("[CloudMarket] Could not add '" + key + "': " + e.getMessage());
+        }
     }
 
     private File prepare(String name) {
