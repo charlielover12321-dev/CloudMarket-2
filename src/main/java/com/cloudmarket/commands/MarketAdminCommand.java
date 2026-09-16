@@ -40,6 +40,7 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case "stock" -> setStock(sender, args);
             case "whitelist" -> whitelist(sender, args);
             case "autoconfig" -> autoConfig(sender, args);
+            case "reprice" -> reprice(sender);
             case "info" -> info(sender, args);
             case "reload" -> reload(sender);
             default -> plugin.configs().messages().send(sender, "admin.usage");
@@ -221,9 +222,12 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             }
             Category category = Category.classify(material);
             double base = suggestBasePrice(material, category);
-            double floor = isFarmable(material) ? 0.0d : round(base * 0.2d);
-            double ceiling = round(base * 2.0d);
-            long equilibrium = suggestEquilibrium(category);
+            boolean rare = ItemRarity.isRare(material);
+            double floor = rare ? round(base * ItemRarity.RARE_FLOOR_FRACTION)
+                    : (isFarmable(material) ? 0.0d : round(base * 0.2d));
+            double ceiling = rare ? round(base * ItemRarity.RARE_CEILING_FRACTION)
+                    : round(base * 2.0d);
+            long equilibrium = rare ? ItemRarity.RARE_EQUILIBRIUM : suggestEquilibrium(category);
 
             String path = "items." + material.name();
             config.set(path + ".category", category.name());
@@ -248,6 +252,12 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
      * heuristic can know what your server's progression feels like.
      */
     private double suggestBasePrice(Material material, Category category) {
+        // Rarity beats composition. A music disc is made of nothing in particular
+        // and is worth a great deal; the category heuristic cannot know that.
+        java.util.OptionalDouble rare = ItemRarity.rarePrice(material);
+        if (rare.isPresent()) {
+            return rare.getAsDouble();
+        }
         String name = material.name();
         if (name.contains("NETHERITE") || name.equals("NETHER_STAR") || name.contains("DRAGON")) {
             return 500.0d;
@@ -289,6 +299,53 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
 
     private static double round(double value) {
         return Math.round(value * 100.0d) / 100.0d;
+    }
+
+    /**
+     * Re-price rare items that already have a config entry.
+     *
+     * <p>autoconfig deliberately skips materials that already exist in the file, so
+     * it cannot fix a music disc written at 0.50 by an earlier run. This walks the
+     * rare list only and rewrites those entries, leaving every other price alone -
+     * a blanket re-price would throw away hand-tuning, which is usually the more
+     * valuable thing in the file.
+     */
+    private void reprice(CommandSender sender) {
+        if (!sender.hasPermission("market.admin.autoconfig")) {
+            plugin.configs().messages().send(sender, "general.no-permission");
+            return;
+        }
+        FileConfiguration config = plugin.configs().marketItems();
+        ConfigurationSection root = config.getConfigurationSection("items");
+        if (root == null) {
+            plugin.configs().messages().send(sender, "admin.nothing-to-reprice");
+            return;
+        }
+
+        int updated = 0;
+        for (Material material : Material.values()) {
+            if (material.isLegacy() || !ItemRarity.isRare(material)) {
+                continue;
+            }
+            if (!root.isConfigurationSection(material.name())) {
+                continue;
+            }
+            double base = ItemRarity.rarePrice(material).orElse(0.0d);
+            if (base <= 0.0d) {
+                continue;
+            }
+            String path = "items." + material.name();
+            config.set(path + ".basePrice", base);
+            config.set(path + ".floorPrice", round(base * ItemRarity.RARE_FLOOR_FRACTION));
+            config.set(path + ".ceilingPrice", round(base * ItemRarity.RARE_CEILING_FRACTION));
+            config.set(path + ".equilibriumStock", ItemRarity.RARE_EQUILIBRIUM);
+            updated++;
+        }
+
+        plugin.configs().saveMarketItems();
+        plugin.reloadMarket();
+        plugin.configs().messages().send(sender, "admin.repriced",
+                Map.of("count", String.valueOf(updated)));
     }
 
     private void info(CommandSender sender, String[] args) {
@@ -345,7 +402,7 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
                                       @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
             return MarketCommands.filter(
-                    List.of("setprice", "stock", "whitelist", "autoconfig", "info", "reload"), args[0]);
+                    List.of("setprice", "stock", "whitelist", "autoconfig", "reprice", "info", "reload"), args[0]);
         }
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);

@@ -57,7 +57,7 @@ commands:
     permission: market.shopchest
   marketadmin:
     description: Administer the cloud market.
-    usage: /marketadmin <setprice|stock|whitelist|autoconfig|info|reload>
+    usage: /marketadmin <setprice|stock|whitelist|autoconfig|reprice|info|reload>
     aliases: [cmadmin]
     permission: market.admin
 

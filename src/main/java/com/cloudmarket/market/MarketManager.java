@@ -70,6 +70,7 @@ public final class MarketManager {
     private final SellLimiter limiter;
     private Set<Material> whitelist = Set.of();
     private volatile boolean refuseDamaged = true;
+    private Set<Material> blocked = Set.of();
 
     public MarketManager(CloudMarket plugin) {
         this.plugin = plugin;
@@ -119,6 +120,7 @@ public final class MarketManager {
         scanner.scan();
         whitelist = plugin.configs().whitelistedCraftables();
         refuseDamaged = plugin.configs().refuseDamaged();
+        blocked = plugin.configs().blockedMaterials();
         limiter.setCapPerHour(plugin.configs().sellCapPerHour());
 
         Map<String, SqlStorage.MarketRow> saved = new HashMap<>();
@@ -137,6 +139,7 @@ public final class MarketManager {
 
         int skippedUnknown = 0;
         int skippedCraftable = 0;
+        int skippedBlocked = 0;
         for (String key : root.getKeys(false)) {
             ConfigurationSection section = root.getConfigurationSection(key);
             if (section == null) {
@@ -150,6 +153,10 @@ public final class MarketManager {
                 plugin.getLogger().warning("[CloudMarket] market-items.yml references unknown material '"
                         + key + "'; skipping.");
                 skippedUnknown++;
+                continue;
+            }
+            if (blocked.contains(material)) {
+                skippedBlocked++;
                 continue;
             }
             if (!isEligible(material)) {
@@ -188,7 +195,8 @@ public final class MarketManager {
 
         plugin.getLogger().info("[CloudMarket] Market loaded: " + items.size() + " tradable materials"
                 + (skippedCraftable > 0 ? ", " + skippedCraftable + " config entries ignored as craftable" : "")
-                + (skippedUnknown > 0 ? ", " + skippedUnknown + " unknown material names skipped" : "") + ".");
+                + (skippedUnknown > 0 ? ", " + skippedUnknown + " unknown material names skipped" : "")
+                + (skippedBlocked > 0 ? ", " + skippedBlocked + " blocked as unobtainable" : "") + ".");
 
         if (plugin.configs().craftedEnabled()) {
             buildDerivedItems(saved);
@@ -221,7 +229,7 @@ public final class MarketManager {
             if (material.isLegacy() || material.isAir() || !material.isItem()) {
                 continue;
             }
-            if (configured.containsKey(material)) {
+            if (configured.containsKey(material) || blocked.contains(material)) {
                 continue;
             }
             Double value = valuation.valueOf(material);
@@ -303,6 +311,10 @@ public final class MarketManager {
 
     /** True if the raw-material rule and the override list allow this material. */
     public boolean isEligible(Material material) {
+        // Unobtainable items are never eligible, whatever the recipe scan says.
+        if (blocked.contains(material)) {
+            return false;
+        }
         if (scanner.isRaw(material) || whitelist.contains(material)) {
             return true;
         }

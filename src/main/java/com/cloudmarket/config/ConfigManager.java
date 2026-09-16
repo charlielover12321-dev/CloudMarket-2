@@ -150,6 +150,44 @@ public final class ConfigManager {
         return economy.getInt("autosave-seconds", 300);
     }
 
+    /**
+     * Materials barred from the market entirely: the built-in unobtainable list,
+     * plus anything an admin added under 'blacklist' in market-items.yml, minus
+     * anything they re-allowed under 'unblock'.
+     *
+     * <p>The unblock escape hatch matters because "unobtainable" is server-specific.
+     * A plugin that lets players mine trial spawners makes one of my defaults wrong,
+     * and an admin should be able to fix that without editing the jar.
+     */
+    public java.util.Set<org.bukkit.Material> blockedMaterials() {
+        java.util.Set<org.bukkit.Material> blocked =
+                java.util.EnumSet.noneOf(org.bukkit.Material.class);
+        for (String name : com.cloudmarket.market.ItemRarity.unobtainableNames()) {
+            org.bukkit.Material material = org.bukkit.Material.matchMaterial(name);
+            if (material != null) {
+                blocked.add(material);
+            }
+        }
+        for (String name : marketItems.getStringList("blacklist")) {
+            org.bukkit.Material material =
+                    org.bukkit.Material.matchMaterial(name.toUpperCase(Locale.ROOT));
+            if (material == null) {
+                plugin.getLogger().warning("market-items.yml blacklist has an unknown material: "
+                        + name);
+                continue;
+            }
+            blocked.add(material);
+        }
+        for (String name : marketItems.getStringList("unblock")) {
+            org.bukkit.Material material =
+                    org.bukkit.Material.matchMaterial(name.toUpperCase(Locale.ROOT));
+            if (material != null) {
+                blocked.remove(material);
+            }
+        }
+        return blocked;
+    }
+
     public boolean craftedEnabled() {
         return economy.getBoolean("crafted.enabled", true);
     }

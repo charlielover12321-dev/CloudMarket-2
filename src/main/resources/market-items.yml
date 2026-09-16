@@ -27,6 +27,16 @@
 # Run /marketadmin autoconfig to add every other raw material the server knows
 # about, including anything a future game drop introduces.
 
+# Materials barred from the market entirely, on top of the built-in unobtainable
+# list (bedrock, barriers, command blocks, end portal frames, infested stone,
+# suspicious sand, budding amethyst and similar). Add your own here.
+blacklist: []
+
+# Re-allow something from the built-in list. "Unobtainable" is server-specific - if
+# a plugin lets your players get trial spawners, unblock them here rather than
+# living with a wrong default.
+unblock: []
+
 items:
 
   # ----------------------------------------------------------------- Wood

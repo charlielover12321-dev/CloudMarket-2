@@ -102,7 +102,7 @@ shopchest:
   info-line: "  &f{item} &7- &a{symbol}{price} &7each, &f{stock}&7 in stock"
 
 admin:
-  usage: "&7Usage: &f/marketadmin <setprice|stock|whitelist|autoconfig|info|reload>"
+  usage: "&7Usage: &f/marketadmin <setprice|stock|whitelist|autoconfig|reprice|info|reload>"
   setprice-usage: "&7Usage: &f/marketadmin setprice <item> <base> <floor> <ceiling> <equilibrium>"
   stock-usage: "&7Usage: &f/marketadmin stock <item> <amount>"
   whitelist-usage: "&7Usage: &f/marketadmin whitelist <item>"
@@ -115,6 +115,8 @@ admin:
   autoconfig-done: "&aAdded &f{added}&a new materials to market-items.yml ({state}). Review the prices before going live."
   item-info: "&7{item} &8| &7{category}&8 | &7base &f{symbol}{base}&7, floor &f{symbol}{floor}&7, ceiling &f{symbol}{ceiling}&7, equilibrium &f{equilibrium}&7, stock &f{stock}"
   summary: "&7Market: &f{items}&7 tradable, &f{barred}&7 barred as craftable, &f{rescued}&7 kept by the storage-block rule, from &f{recipes}&7 recipes. &f{chests}&7 shop chests. Supply &a{symbol}{supply}&7, burned &c{symbol}{burned}&7."
+  repriced: "&aRe-priced &f{count}&a rare items. Run &f/marketadmin info <item>&a to check one."
+  nothing-to-reprice: "&cmarket-items.yml has no items section yet. Run &f/marketadmin autoconfig&c first."
   reloaded: "&aConfiguration reloaded."
 
 gui:
