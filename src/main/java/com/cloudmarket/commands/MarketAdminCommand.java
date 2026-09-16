@@ -2,6 +2,7 @@ package com.cloudmarket.commands;
 
 import com.cloudmarket.CloudMarket;
 import com.cloudmarket.market.Category;
+import com.cloudmarket.market.ItemRarity;
 import com.cloudmarket.market.MarketItem;
 import com.cloudmarket.util.Fmt;
 import org.bukkit.Material;
