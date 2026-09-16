@@ -133,7 +133,13 @@ public final class GuiListener implements Listener {
             return;
         }
 
-        if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
+        // Bedrock has no shift-click or right-click inside a container: Geyser
+        // delivers every tap as a plain left-click. A three-way click scheme
+        // therefore collapses to "buy 1" and nothing else for Bedrock players, so
+        // any tap opens the quantity form instead - which is the better interaction
+        // on a controller or a touchscreen regardless.
+        boolean bedrock = plugin.bedrock().isBedrock(player);
+        if (bedrock || click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
             int max = (int) Math.min(item.getStock(), 2304L);
             if (max <= 0) {
                 plugin.configs().messages().send(player, "market.no-stock",
@@ -207,7 +213,8 @@ public final class GuiListener implements Listener {
             return;
         }
 
-        if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
+        boolean bedrock = plugin.bedrock().isBedrock(player);
+        if (bedrock || click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
             int available = plugin.shopChests().stockOf(chest, offer);
             if (available <= 0) {
                 plugin.configs().messages().send(player, "shopchest.out-of-stock",
@@ -256,7 +263,8 @@ public final class GuiListener implements Listener {
             return;
         }
 
-        if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
+        boolean bedrock = plugin.bedrock().isBedrock(player);
+        if (bedrock || click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
             int max = listing.getRemaining();
             later(() -> {
                 player.closeInventory();

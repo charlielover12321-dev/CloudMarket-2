@@ -144,9 +144,15 @@ public final class GuiManager {
                 PricingEngine.quoteSell(item, stock, 1, plugin.configs().taxRate());
         lore.add("&7Sell 1 for &a" + symbol + Fmt.money(sellOne.net()));
         lore.add("");
-        lore.add("&eLeft-click &7buy one");
-        lore.add("&eShift-left &7buy a stack");
-        lore.add("&eRight-click &7choose an amount");
+        // Bedrock cannot produce shift- or right-clicks in a container, so telling
+        // a Bedrock player to use them is worse than useless.
+        if (plugin.bedrock().isBedrock(player)) {
+            lore.add("&eTap &7to choose how many");
+        } else {
+            lore.add("&eLeft-click &7buy one");
+            lore.add("&eShift-left &7buy a stack");
+            lore.add("&eRight-click &7choose an amount");
+        }
 
         if (plugin.market().limiter().isEnabled() && !player.hasPermission("market.limit.bypass")) {
             int remaining = plugin.market().limiter()
@@ -219,9 +225,13 @@ public final class GuiManager {
                 lore.add("&7Seller: &f" + plugin.economy().nameOf(listing.getSeller()));
                 lore.add("&7Expires in &f" + listing.daysRemaining() + " &7days");
                 lore.add("");
-                lore.add("&eLeft-click &7buy one");
-                lore.add("&eShift-left &7buy the lot");
-                lore.add("&eRight-click &7choose an amount");
+                if (plugin.bedrock().isBedrock(player)) {
+                    lore.add("&eTap &7to choose how many");
+                } else {
+                    lore.add("&eLeft-click &7buy one");
+                    lore.add("&eShift-left &7buy the lot");
+                    lore.add("&eRight-click &7choose an amount");
+                }
             }
             // The real item, at the remaining count, so the number in the corner of
             // the icon is the live stock.
@@ -310,6 +320,8 @@ public final class GuiManager {
                 lore.add("&8Sneak + right-click the chest to restock.");
             } else if (stock <= 0) {
                 lore.add("&cOut of stock.");
+            } else if (plugin.bedrock().isBedrock(player)) {
+                lore.add("&eTap &7to choose how many");
             } else {
                 lore.add("&eLeft-click &7buy one");
                 lore.add("&eShift-left &7buy a stack");
