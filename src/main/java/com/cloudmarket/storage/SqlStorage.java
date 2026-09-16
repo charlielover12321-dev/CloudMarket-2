@@ -40,7 +40,8 @@ public final class SqlStorage {
     public record ChestRow(int id, String world, int x, int y, int z, UUID owner) {
     }
 
-    public record ListingRow(int chestId, String material, BigDecimal price) {
+    public record ListingRow(int chestId, String itemKey, String material,
+                             String itemData, BigDecimal price) {
     }
 
     public record ListingData(int id, UUID seller, String itemData, String displayName,
@@ -145,6 +146,18 @@ public final class SqlStorage {
                   material VARCHAR(96) NOT NULL,
                   price DECIMAL(12,2) NOT NULL,
                   PRIMARY KEY (chest_id, material)
+                )
+                """,
+                // Variant-aware replacement. The old table is left in place and
+                // migrated from on first load, so an existing shop keeps working.
+                """
+                CREATE TABLE IF NOT EXISTS shop_chest_offers (
+                  chest_id INT NOT NULL,
+                  item_key VARCHAR(96) NOT NULL,
+                  material VARCHAR(96) NOT NULL,
+                  item_data TEXT,
+                  price DECIMAL(12,2) NOT NULL,
+                  PRIMARY KEY (chest_id, item_key)
                 )
                 """,
                 "CREATE TABLE IF NOT EXISTS black_market_listings (\n"
@@ -347,12 +360,46 @@ public final class SqlStorage {
     public List<ListingRow> loadListings() throws SQLException {
         List<ListingRow> out = new ArrayList<>();
         try (Connection connection = connection();
-             PreparedStatement statement = connection.prepareStatement("SELECT * FROM shop_chest_listings");
+             PreparedStatement statement = connection.prepareStatement("SELECT * FROM shop_chest_offers");
+             ResultSet results = statement.executeQuery()) {
+            while (results.next()) {
+                out.add(new ListingRow(results.getInt("chest_id"), results.getString("item_key"),
+                        results.getString("material"), results.getString("item_data"),
+                        results.getBigDecimal("price")));
+            }
+        }
+        if (out.isEmpty()) {
+            out.addAll(migrateLegacyListings());
+        }
+        return out;
+    }
+
+    /**
+     * Copy rows from the old material-keyed table into the variant-keyed one.
+     *
+     * <p>Old rows have no item data, so they come across as material-wide listings
+     * that match any item of that type - exactly what they did before. Re-listing an
+     * item is what upgrades it to a specific variant.
+     */
+    private List<ListingRow> migrateLegacyListings() throws SQLException {
+        List<ListingRow> out = new ArrayList<>();
+        try (Connection connection = connection();
+             PreparedStatement statement =
+                     connection.prepareStatement("SELECT * FROM shop_chest_listings");
              ResultSet results = statement.executeQuery()) {
             while (results.next()) {
                 out.add(new ListingRow(results.getInt("chest_id"), results.getString("material"),
-                        results.getBigDecimal("price")));
+                        results.getString("material"), null, results.getBigDecimal("price")));
             }
+        } catch (SQLException e) {
+            return out;
+        }
+        for (ListingRow row : out) {
+            saveListing(row.chestId(), row.itemKey(), row.material(), row.itemData(), row.price());
+        }
+        if (!out.isEmpty()) {
+            logger.info("[CloudMarket] Migrated " + out.size()
+                    + " shop chest listings to variant-aware storage.");
         }
         return out;
     }
@@ -379,7 +426,7 @@ public final class SqlStorage {
     public void deleteChest(int chestId) throws SQLException {
         try (Connection connection = connection()) {
             try (PreparedStatement statement =
-                         connection.prepareStatement("DELETE FROM shop_chest_listings WHERE chest_id=?")) {
+                         connection.prepareStatement("DELETE FROM shop_chest_offers WHERE chest_id=?")) {
                 statement.setInt(1, chestId);
                 statement.executeUpdate();
             }
@@ -391,17 +438,22 @@ public final class SqlStorage {
         }
     }
 
-    public void saveListing(int chestId, String material, BigDecimal price) throws SQLException {
+    public void saveListing(int chestId, String itemKey, String material, String itemData,
+                            BigDecimal price) throws SQLException {
         String sql = mysql
-                ? "INSERT INTO shop_chest_listings (chest_id, material, price) VALUES (?,?,?) "
-                + "ON DUPLICATE KEY UPDATE price=VALUES(price)"
-                : "INSERT INTO shop_chest_listings (chest_id, material, price) VALUES (?,?,?) "
-                + "ON CONFLICT(chest_id, material) DO UPDATE SET price=excluded.price";
+                ? "INSERT INTO shop_chest_offers (chest_id, item_key, material, item_data, price) "
+                + "VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE price=VALUES(price), "
+                + "item_data=VALUES(item_data)"
+                : "INSERT INTO shop_chest_offers (chest_id, item_key, material, item_data, price) "
+                + "VALUES (?,?,?,?,?) ON CONFLICT(chest_id, item_key) DO UPDATE SET "
+                + "price=excluded.price, item_data=excluded.item_data";
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, chestId);
-            statement.setString(2, material);
-            statement.setBigDecimal(3, price);
+            statement.setString(2, itemKey);
+            statement.setString(3, material);
+            statement.setString(4, itemData);
+            statement.setBigDecimal(5, price);
             statement.executeUpdate();
         }
     }
@@ -477,12 +529,12 @@ public final class SqlStorage {
         }
     }
 
-    public void deleteListing(int chestId, String material) throws SQLException {
+    public void deleteListing(int chestId, String itemKey) throws SQLException {
         try (Connection connection = connection();
              PreparedStatement statement = connection.prepareStatement(
-                     "DELETE FROM shop_chest_listings WHERE chest_id=? AND material=?")) {
+                     "DELETE FROM shop_chest_offers WHERE chest_id=? AND item_key=?")) {
             statement.setInt(1, chestId);
-            statement.setString(2, material);
+            statement.setString(2, itemKey);
             statement.executeUpdate();
         }
     }

@@ -76,6 +76,50 @@ public final class ItemCodec {
     }
 
     /**
+     * A stable identifier for an item variant.
+     *
+     * <p>Shop chests used to key listings by {@code Material}, which meant every
+     * enchanted book in a chest shared one price and buyers received whichever copy
+     * happened to sit first. Keying on the item itself lets a Mending book and a
+     * Bane of Arthropods book live in the same chest at different prices.
+     *
+     * <p>Plain items with no meta return their material name unchanged. That keeps
+     * ordinary listings readable in the database and lets rows written by the old
+     * material-keyed version keep working untouched.
+     */
+    public static String keyOf(ItemStack stack) {
+        if (stack == null) {
+            return "AIR";
+        }
+        String material = stack.getType().name();
+        if (!stack.hasItemMeta() || stack.getItemMeta() == null) {
+            return material;
+        }
+        String encoded = encode(cleanCopy(stack));
+        if (encoded == null) {
+            return material;
+        }
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                hex.append(String.format("%02x", hash[i]));
+            }
+            return material + "#" + hex;
+        } catch (Exception e) {
+            return material;
+        }
+    }
+
+    /** Amount must not affect the key: one book and eight are the same variant. */
+    private static ItemStack cleanCopy(ItemStack stack) {
+        ItemStack copy = stack.clone();
+        copy.setAmount(1);
+        return copy;
+    }
+
+    /**
      * Enchantments on a stack, book or otherwise.
      *
      * <p>Books keep theirs in {@link EnchantmentStorageMeta} rather than in the

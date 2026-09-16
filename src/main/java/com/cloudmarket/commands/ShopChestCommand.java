@@ -2,6 +2,7 @@ package com.cloudmarket.commands;
 
 import com.cloudmarket.CloudMarket;
 import com.cloudmarket.shops.ShopChest;
+import com.cloudmarket.util.ItemCodec;
 import com.cloudmarket.util.Fmt;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -105,29 +106,28 @@ public final class ShopChestCommand implements CommandExecutor, TabCompleter {
             plugin.configs().messages().send(player, "shopchest.hold-item");
             return;
         }
-        Material material = hand.getType();
-
         if (args.length >= 2) {
             BigDecimal price = Fmt.parseAmount(args[1]);
             if (price == null) {
                 plugin.configs().messages().send(player, "pay.bad-amount");
                 return;
             }
-            applyPrice(player, chest, material, price);
+            applyPrice(player, chest, hand.clone(), price);
             return;
         }
 
         // No price given: ask for one. Bedrock players get a form, Java players a
         // chat prompt, both handled behind the same call.
+        ItemStack sample = hand.clone();
         plugin.bedrock().promptForPrice(player, "Set price",
-                "Price per " + Fmt.pretty(material) + ":",
-                price -> applyPrice(player, chest, material, price));
+                "Price per " + ItemCodec.describe(sample) + ":",
+                price -> applyPrice(player, chest, sample, price));
     }
 
-    private void applyPrice(Player player, ShopChest chest, Material material, BigDecimal price) {
-        plugin.shopChests().setPrice(chest, material, price);
+    private void applyPrice(Player player, ShopChest chest, ItemStack sample, BigDecimal price) {
+        plugin.shopChests().setPrice(chest, sample, price);
         plugin.configs().messages().send(player, "shopchest.price-set", Map.of(
-                "item", Fmt.pretty(material),
+                "item", ItemCodec.describe(sample),
                 "price", Fmt.money(price),
                 "symbol", plugin.configs().currencySymbol()));
     }
@@ -151,9 +151,15 @@ public final class ShopChestCommand implements CommandExecutor, TabCompleter {
             plugin.configs().messages().send(player, "shopchest.hold-item");
             return;
         }
-        plugin.shopChests().clearPrice(chest, hand.getType());
+        ShopChest.Offer offer = plugin.shopChests().offerMatching(chest, hand);
+        if (offer == null) {
+            plugin.configs().messages().send(player, "shopchest.not-listed",
+                    Map.of("item", ItemCodec.describe(hand)));
+            return;
+        }
+        plugin.shopChests().clearPrice(chest, offer.key());
         plugin.configs().messages().send(player, "shopchest.price-removed",
-                Map.of("item", Fmt.pretty(hand.getType())));
+                Map.of("item", ItemCodec.describe(hand)));
     }
 
     private void info(Player player) {
@@ -168,11 +174,11 @@ public final class ShopChestCommand implements CommandExecutor, TabCompleter {
         }
         plugin.configs().messages().send(player, "shopchest.info-header",
                 Map.of("owner", plugin.economy().nameOf(chest.getOwner())));
-        for (Material material : plugin.shopChests().listedMaterials(chest)) {
+        for (ShopChest.Offer offer : plugin.shopChests().listedOffers(chest)) {
             player.sendMessage(plugin.configs().messages().bare("shopchest.info-line", Map.of(
-                    "item", Fmt.pretty(material),
-                    "price", Fmt.money(chest.priceOf(material)),
-                    "stock", String.valueOf(plugin.shopChests().stockOf(chest, material)),
+                    "item", ItemCodec.describe(offer.icon(1)),
+                    "price", Fmt.money(offer.price()),
+                    "stock", String.valueOf(plugin.shopChests().stockOf(chest, offer)),
                     "symbol", plugin.configs().currencySymbol())));
         }
     }

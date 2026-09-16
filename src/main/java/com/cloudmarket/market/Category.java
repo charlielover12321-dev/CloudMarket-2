@@ -22,6 +22,8 @@ public enum Category {
     TOOLS("Tools & Armour", Material.IRON_PICKAXE),
     REDSTONE_TECH("Redstone", Material.REDSTONE_TORCH),
     DECORATION("Decoration", Material.FLOWER_POT),
+    SPAWN_EGGS("Spawn Eggs", Material.PIG_SPAWN_EGG),
+    MUSIC("Music Discs", Material.JUKEBOX),
     NATURAL("Natural Blocks", Material.DIRT),
     UTILITY("Utility & Storage", Material.CHEST),
     BREWING("Brewing", Material.BREWING_STAND),
@@ -102,7 +104,33 @@ public enum Category {
             "CONCRETE", "TERRACOTTA", "COBBLESTONE", "DEEPSLATE", "ANDESITE", "GRANITE",
             "DIORITE", "BLACKSTONE", "PRISMARINE", "PURPUR",
             "SANDSTONE", "QUARTZ_BLOCK", "MUD_BRICK", "NETHER_BRICK", "COPPER_BLOCK",
-            "SCAFFOLDING", "BRICK");
+            "SCAFFOLDING", "BRICK", "COPPER", "CHISELED", "CUT_", "POLISHED", "SMOOTH_",
+            "RESIN", "IRON_BARS", "GLASS_PANE", "LANTERN", "CHAIN", "GRATE", "BULB");
+
+    private static final Set<String> FLOWERS = Set.of(
+            "DANDELION", "POPPY", "BLUE_ORCHID", "ALLIUM", "AZURE_BLUET", "OXEYE_DAISY",
+            "CORNFLOWER", "LILY_OF_THE_VALLEY", "WITHER_ROSE", "SUNFLOWER", "LILAC",
+            "ROSE_BUSH", "PEONY", "TORCHFLOWER", "PITCHER_PLANT", "SPORE_BLOSSOM",
+            "PINK_PETALS", "WILDFLOWERS", "LEAF_LITTER", "CACTUS_FLOWER", "FIREFLY_BUSH",
+            "RED_TULIP", "ORANGE_TULIP", "WHITE_TULIP", "PINK_TULIP", "LILY_PAD");
+
+    private static final Set<String> PLANTS = Set.of(
+            "SHORT_GRASS", "TALL_GRASS", "FERN", "LARGE_FERN", "SEAGRASS", "TALL_SEAGRASS",
+            "DEAD_BUSH", "BUSH", "VINE", "WEEPING_VINES", "TWISTING_VINES", "GLOW_LICHEN",
+            "HANGING_ROOTS", "BIG_DRIPLEAF", "SMALL_DRIPLEAF", "AZALEA", "FLOWERING_AZALEA");
+
+    /** Block forms of food and farm produce. */
+    private static final Set<String> FOOD_BLOCKS = Set.of(
+            "HAY_BLOCK", "DRIED_KELP_BLOCK", "MELON", "PUMPKIN", "CARVED_PUMPKIN",
+            "JACK_O_LANTERN", "CAKE", "HONEY_BLOCK", "HONEYCOMB_BLOCK",
+            "NETHER_WART_BLOCK", "WARPED_WART_BLOCK");
+
+    /** Organic and mob-derived blocks that are neither built nor mined. */
+    private static final Set<String> ORGANIC_BLOCKS = Set.of(
+            "SPONGE", "WET_SPONGE", "MUSHROOM_STEM", "BROWN_MUSHROOM_BLOCK",
+            "RED_MUSHROOM_BLOCK", "BROWN_MUSHROOM", "RED_MUSHROOM", "SHROOMLIGHT",
+            "BONE_BLOCK", "SLIME_BLOCK", "OCHRE_FROGLIGHT", "VERDANT_FROGLIGHT",
+            "PEARLESCENT_FROGLIGHT", "TURTLE_EGG", "COBWEB");
 
     private static final Set<String> NATURAL_EXACT = Set.of(
             "STONE", "SMOOTH_STONE", "COBBLESTONE", "MOSSY_COBBLESTONE", "DEEPSLATE",
@@ -125,6 +153,7 @@ public enum Category {
             "ENCHANTING_TABLE", "CAULDRON", "BUCKET", "MINECART", "BOAT", "LADDER",
             "GRINDSTONE", "SMITHING_TABLE", "STONECUTTER", "LOOM", "COMPOSTER",
             "CARTOGRAPHY_TABLE", "FLETCHING_TABLE", "BEEHIVE", "BEE_NEST", "LECTERN",
+            "HARNESS", "BUNDLE", "MINECART", "RAIL_", "MOJANG_BANNER_PATTERN",
             "BOOKSHELF", "BOOK", "PAPER", "MAP", "SHULKER_BOX", "SADDLE", "ARMOR_STAND");
 
     private static final Set<String> BREWING_FRAGMENTS = Set.of(
@@ -178,6 +207,14 @@ public enum Category {
             // Fall through to the name lists.
         }
 
+        if (name.endsWith("_SPAWN_EGG")) {
+            return SPAWN_EGGS;
+        }
+        if (name.startsWith("MUSIC_DISC") || name.equals("JUKEBOX")
+                || name.equals("NOTE_BLOCK") || name.equals("DISC_FRAGMENT_5")) {
+            return MUSIC;
+        }
+
         for (String suffix : TOOL_SUFFIXES) {
             if (name.endsWith(suffix)) {
                 return TOOLS;
@@ -191,14 +228,21 @@ public enum Category {
                 || name.endsWith("_HYPHAE") || name.equals("BAMBOO_BLOCK")) {
             return WOOD;
         }
-        if (name.endsWith("_ORE") || name.startsWith("RAW_") || MINERAL_NAMES.contains(name)
-                || isMineralBlock(name) || name.contains("SULFUR") || name.contains("CINNABAR")) {
+        // Worked metal counts as ore-adjacent. Without the ingot and nugget cases,
+        // COPPER_INGOT falls through to the building rules below and files itself
+        // next to copper stairs.
+        if (name.endsWith("_ORE") || name.startsWith("RAW_") || name.endsWith("_INGOT")
+                || name.endsWith("_NUGGET") || name.endsWith("_SCRAP")
+                || MINERAL_NAMES.contains(name) || isMineralBlock(name)
+                || name.contains("AMETHYST") || name.contains("SULFUR")
+                || name.contains("CINNABAR")) {
             return ORES;
         }
-        if (MOB_DROP_NAMES.contains(name)) {
+        if (MOB_DROP_NAMES.contains(name) || name.endsWith("_EGG")
+                || name.equals("EGG") || name.endsWith("_SHELL")) {
             return MOB_DROPS;
         }
-        if (CROP_NAMES.contains(name)) {
+        if (CROP_NAMES.contains(name) || FOOD_BLOCKS.contains(name)) {
             return FOOD;
         }
         try {
@@ -226,6 +270,15 @@ public enum Category {
         }
         // Natural terrain is checked before building blocks so tuff, calcite and
         // basalt file as things you dig up rather than things you build with.
+        if (ORGANIC_BLOCKS.contains(name)) {
+            return NATURAL;
+        }
+        if (FLOWERS.contains(name)) {
+            return DECORATION;
+        }
+        if (PLANTS.contains(name) || name.contains("CORAL")) {
+            return NATURAL;
+        }
         if (NATURAL_EXACT.contains(name)) {
             return NATURAL;
         }

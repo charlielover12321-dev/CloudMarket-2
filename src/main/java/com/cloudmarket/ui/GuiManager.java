@@ -47,12 +47,14 @@ public final class GuiManager {
      * room for more categories than currently exist without another layout change.
      */
     public static final int[] CATEGORY_SLOTS =
-            {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25};
+            {10, 11, 12, 13, 14, 15, 16,
+             19, 20, 21, 22, 23, 24, 25,
+             28, 29, 30, 31, 32, 33, 34};
 
     public void openCategories(Player player) {
         plugin.market().refreshDerivedPrices();
         MarketHolder holder = MarketHolder.categories();
-        Inventory inventory = Bukkit.createInventory(holder, 36,
+        Inventory inventory = Bukkit.createInventory(holder, 45,
                 plugin.configs().messages().bare("gui.market-title", Map.of()));
         holder.setInventory(inventory);
 
@@ -66,7 +68,7 @@ public final class GuiManager {
                             "",
                             "&eClick to browse")));
         }
-        inventory.setItem(31, balanceIcon(player));
+        inventory.setItem(40, balanceIcon(player));
         player.openInventory(inventory);
     }
 
@@ -273,7 +275,7 @@ public final class GuiManager {
      *                the buy hints are replaced with a reminder about how to restock
      */
     public void openShopChest(Player player, ShopChest chest, boolean preview) {
-        List<Material> listed = plugin.shopChests().listedMaterials(chest);
+        List<ShopChest.Offer> listed = plugin.shopChests().listedOffers(chest);
         MarketHolder holder = MarketHolder.shopChest(chest);
         int rows = Math.max(3, Math.min(6, (int) Math.ceil(listed.size() / 9.0d) + 1));
         Inventory inventory = Bukkit.createInventory(holder, rows * 9,
@@ -283,14 +285,24 @@ public final class GuiManager {
 
         String symbol = plugin.configs().currencySymbol();
         int slot = 0;
-        for (Material material : listed) {
+        for (ShopChest.Offer offer : listed) {
             if (slot >= (rows - 1) * 9) {
                 break;
             }
-            BigDecimal price = chest.priceOf(material);
-            int stock = plugin.shopChests().stockOf(chest, material);
+            int stock = plugin.shopChests().stockOf(chest, offer);
             List<String> lore = new ArrayList<>();
-            lore.add("&7Price: &a" + symbol + Fmt.money(price) + " &7each");
+            // The real item is the icon, so enchantments, custom names and NBT all
+            // show. Previously this built a fresh stack from the material, which is
+            // why every enchanted book looked identical and blank.
+            List<String> enchants =
+                    com.cloudmarket.util.ItemCodec.enchantmentLines(offer.icon(1));
+            if (!enchants.isEmpty()) {
+                for (String line : enchants) {
+                    lore.add("&b" + line);
+                }
+                lore.add("");
+            }
+            lore.add("&7Price: &a" + symbol + Fmt.money(offer.price()) + " &7each");
             lore.add("&7In stock: &f" + Fmt.count(stock));
             lore.add("");
             if (preview) {
@@ -303,7 +315,7 @@ public final class GuiManager {
                 lore.add("&eShift-left &7buy a stack");
                 lore.add("&eRight-click &7choose an amount");
             }
-            inventory.setItem(slot++, icon(material, "&f&l" + Fmt.pretty(material), lore));
+            inventory.setItem(slot++, decorate(offer.icon(Math.max(1, stock)), lore));
         }
 
         if (listed.isEmpty()) {

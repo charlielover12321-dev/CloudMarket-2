@@ -2,6 +2,7 @@ package com.cloudmarket.shops;
 
 import com.cloudmarket.CloudMarket;
 import com.cloudmarket.storage.SqlStorage;
+import com.cloudmarket.util.ItemCodec;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -75,9 +76,12 @@ public final class ShopChestManager {
             }
             for (SqlStorage.ListingRow listing : entry.getValue()) {
                 Material material = Material.matchMaterial(listing.material().toUpperCase(Locale.ROOT));
-                if (material != null) {
-                    chest.setPrice(material, listing.price());
+                if (material == null) {
+                    continue;
                 }
+                ItemStack template = ItemCodec.decode(listing.itemData());
+                chest.setOffer(new ShopChest.Offer(listing.itemKey(), material, template,
+                        listing.price()));
             }
         }
         plugin.getLogger().info("[CloudMarket] Loaded " + byLocation.size() + " shop chests.");
@@ -173,26 +177,55 @@ public final class ShopChestManager {
         });
     }
 
-    public void setPrice(ShopChest chest, Material material, BigDecimal price) {
-        chest.setPrice(material, price);
+    /**
+     * Price one item variant. The held stack is stored verbatim, so a Mending book
+     * and a Bane of Arthropods book in the same chest carry their own prices.
+     */
+    public ShopChest.Offer setPrice(ShopChest chest, ItemStack sample, BigDecimal price) {
+        ItemStack template = sample.clone();
+        template.setAmount(1);
+        String key = ItemCodec.keyOf(template);
+        // Plain items store no data: their material alone identifies them, and it
+        // keeps the database readable.
+        String data = template.hasItemMeta() ? ItemCodec.encode(template) : null;
+
+        ShopChest.Offer offer =
+                new ShopChest.Offer(key, template.getType(), data == null ? null : template, price);
+        chest.setOffer(offer);
         plugin.async(() -> {
             try {
-                plugin.storage().saveListing(chest.getId(), material.name(), price);
+                plugin.storage().saveListing(chest.getId(), key, template.getType().name(),
+                        data, price);
             } catch (Exception e) {
                 plugin.getLogger().warning("[CloudMarket] Could not save listing: " + e.getMessage());
             }
         });
+        return offer;
     }
 
-    public void clearPrice(ShopChest chest, Material material) {
-        chest.clearPrice(material);
+    public void clearPrice(ShopChest chest, String key) {
+        chest.clearOffer(key);
         plugin.async(() -> {
             try {
-                plugin.storage().deleteListing(chest.getId(), material.name());
+                plugin.storage().deleteListing(chest.getId(), key);
             } catch (Exception e) {
                 plugin.getLogger().warning("[CloudMarket] Could not delete listing: " + e.getMessage());
             }
         });
+    }
+
+    /** The offer in this chest matching a stack, or null. */
+    public ShopChest.Offer offerMatching(ShopChest chest, ItemStack stack) {
+        ShopChest.Offer exact = chest.offerFor(ItemCodec.keyOf(stack));
+        if (exact != null) {
+            return exact;
+        }
+        for (ShopChest.Offer offer : chest.getOffers().values()) {
+            if (offer.matches(stack)) {
+                return offer;
+            }
+        }
+        return null;
     }
 
     /** The live chest inventory, or null if the block is gone or unloaded. */
@@ -208,23 +241,23 @@ public final class ShopChestManager {
         return state.getInventory();
     }
 
-    public int stockOf(ShopChest chest, Material material) {
+    public int stockOf(ShopChest chest, ShopChest.Offer offer) {
         Inventory inventory = inventoryOf(chest);
         if (inventory == null) {
             return 0;
         }
         int total = 0;
         for (ItemStack stack : inventory.getContents()) {
-            if (stack != null && stack.getType() == material) {
+            if (stack != null && offer.matches(stack)) {
                 total += stack.getAmount();
             }
         }
         return total;
     }
 
-    public List<Material> listedMaterials(ShopChest chest) {
-        List<Material> out = new ArrayList<>(chest.getPrices().keySet());
-        out.sort(java.util.Comparator.comparing(Material::name));
+    public List<ShopChest.Offer> listedOffers(ShopChest chest) {
+        List<ShopChest.Offer> out = new ArrayList<>(chest.getOffers().values());
+        out.sort(java.util.Comparator.comparing(ShopChest.Offer::key));
         return out;
     }
 
@@ -236,45 +269,45 @@ public final class ShopChestManager {
      * against an automated price; a player-to-player sale at a hand-set price has no
      * such loop to close, and taxing it would just be a fee on trading with friends.
      */
-    public Purchase buy(Player buyer, ShopChest chest, Material material, int quantity) {
-        if (quantity <= 0 || material == null || material.isAir()) {
+    public Purchase buy(Player buyer, ShopChest chest, String offerKey, int quantity) {
+        if (quantity <= 0 || offerKey == null) {
             return Purchase.fail(Result.INVALID);
         }
         if (chest.getOwner().equals(buyer.getUniqueId())) {
             return Purchase.fail(Result.OWN_SHOP);
         }
-        BigDecimal unit = chest.priceOf(material);
-        if (unit == null) {
+        ShopChest.Offer offer = chest.offerFor(offerKey);
+        if (offer == null) {
             return Purchase.fail(Result.NOT_LISTED);
         }
         Inventory inventory = inventoryOf(chest);
         if (inventory == null) {
             return Purchase.fail(Result.NOT_A_SHOP);
         }
-        int available = stockOf(chest, material);
+        int available = stockOf(chest, offer);
         if (available <= 0) {
             return Purchase.fail(Result.OUT_OF_STOCK);
         }
         int amount = Math.min(quantity, available);
-        BigDecimal total = unit.multiply(BigDecimal.valueOf(amount))
+        BigDecimal total = offer.price().multiply(BigDecimal.valueOf(amount))
                 .setScale(2, java.math.RoundingMode.HALF_UP);
 
         if (!plugin.economy().has(buyer.getUniqueId(), total)) {
             return Purchase.fail(Result.NOT_ENOUGH_MONEY);
         }
-        if (freeSpace(buyer, material) < amount) {
+        if (freeSpace(buyer, offer) < amount) {
             return Purchase.fail(Result.NO_INVENTORY_SPACE);
         }
         if (!plugin.economy().withdraw(buyer.getUniqueId(), total)) {
             return Purchase.fail(Result.NOT_ENOUGH_MONEY);
         }
 
-        // Take from the chest before handing anything over, so a failure here cannot
-        // duplicate items.
-        int removed = removeFromChest(inventory, material, amount);
+        // Take the exact items out first, so a failure cannot duplicate them, and
+        // hand the buyer back what was actually removed rather than a rebuilt copy.
+        List<ItemStack> taken = removeFromChest(inventory, offer, amount);
+        int removed = taken.stream().mapToInt(ItemStack::getAmount).sum();
         if (removed < amount) {
-            // Somebody emptied the chest in between. Refund the difference.
-            BigDecimal refund = unit.multiply(BigDecimal.valueOf(amount - removed))
+            BigDecimal refund = offer.price().multiply(BigDecimal.valueOf(amount - removed))
                     .setScale(2, java.math.RoundingMode.HALF_UP);
             plugin.economy().deposit(buyer.getUniqueId(), refund);
             total = total.subtract(refund);
@@ -285,9 +318,13 @@ public final class ShopChestManager {
         }
 
         plugin.economy().deposit(chest.getOwner(), total);
-        give(buyer, material, amount);
+        for (ItemStack stack : taken) {
+            for (ItemStack leftover : buyer.getInventory().addItem(stack).values()) {
+                buyer.getWorld().dropItemNaturally(buyer.getLocation(), leftover);
+            }
+        }
 
-        plugin.logTransaction(buyer.getUniqueId(), "SHOPCHEST_BUY", material.name(), amount,
+        plugin.logTransaction(buyer.getUniqueId(), "SHOPCHEST_BUY", offer.material().name(), amount,
                 total, BigDecimal.ZERO, 0L, chest.getOwner().toString());
 
         Player owner = plugin.getServer().getPlayer(chest.getOwner());
@@ -295,22 +332,27 @@ public final class ShopChestManager {
             plugin.configs().messages().send(owner, "shopchest.sold-notify", Map.of(
                     "buyer", buyer.getName(),
                     "amount", String.valueOf(amount),
-                    "item", com.cloudmarket.util.Fmt.pretty(material),
+                    "item", ItemCodec.describe(offer.icon(1)),
                     "total", com.cloudmarket.util.Fmt.money(total),
                     "symbol", plugin.configs().currencySymbol()));
         }
         return new Purchase(Result.OK, amount, total);
     }
 
-    private static int removeFromChest(Inventory inventory, Material material, int amount) {
+    private static List<ItemStack> removeFromChest(Inventory inventory, ShopChest.Offer offer,
+                                                   int amount) {
+        List<ItemStack> taken = new ArrayList<>();
         int remaining = amount;
         ItemStack[] contents = inventory.getContents();
         for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
             ItemStack stack = contents[slot];
-            if (stack == null || stack.getType() != material) {
+            if (stack == null || !offer.matches(stack)) {
                 continue;
             }
             int take = Math.min(remaining, stack.getAmount());
+            ItemStack copy = stack.clone();
+            copy.setAmount(take);
+            taken.add(copy);
             stack.setAmount(stack.getAmount() - take);
             remaining -= take;
             if (stack.getAmount() <= 0) {
@@ -318,32 +360,21 @@ public final class ShopChestManager {
             }
         }
         inventory.setContents(contents);
-        return amount - remaining;
+        return taken;
     }
 
-    private static int freeSpace(Player player, Material material) {
-        int max = material.getMaxStackSize();
+    private static int freeSpace(Player player, ShopChest.Offer offer) {
+        ItemStack sample = offer.icon(1);
+        int max = sample.getMaxStackSize();
         int space = 0;
         for (ItemStack stack : player.getInventory().getStorageContents()) {
             if (stack == null || stack.getType().isAir()) {
                 space += max;
-            } else if (stack.getType() == material) {
+            } else if (stack.isSimilar(sample)) {
                 space += Math.max(0, max - stack.getAmount());
             }
         }
         return space;
     }
 
-    private static void give(Player player, Material material, int quantity) {
-        int remaining = quantity;
-        int max = material.getMaxStackSize();
-        while (remaining > 0) {
-            int size = Math.min(max, remaining);
-            Map<Integer, ItemStack> leftover = player.getInventory().addItem(new ItemStack(material, size));
-            remaining -= size;
-            for (ItemStack stack : leftover.values()) {
-                player.getWorld().dropItemNaturally(player.getLocation(), stack);
-            }
-        }
-    }
 }

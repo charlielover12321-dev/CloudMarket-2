@@ -196,11 +196,11 @@ public final class GuiListener implements Listener {
         if (slot < 0 || slot >= contentSlots) {
             return;
         }
-        List<Material> listed = plugin.shopChests().listedMaterials(chest);
+        List<ShopChest.Offer> listed = plugin.shopChests().listedOffers(chest);
         if (slot >= listed.size()) {
             return;
         }
-        Material material = listed.get(slot);
+        ShopChest.Offer offer = listed.get(slot);
 
         if (chest.getOwner().equals(player.getUniqueId())) {
             plugin.configs().messages().send(player, "shopchest.own-shop");
@@ -208,23 +208,24 @@ public final class GuiListener implements Listener {
         }
 
         if (click == ClickType.RIGHT || click == ClickType.SHIFT_RIGHT) {
-            int available = plugin.shopChests().stockOf(chest, material);
+            int available = plugin.shopChests().stockOf(chest, offer);
             if (available <= 0) {
                 plugin.configs().messages().send(player, "shopchest.out-of-stock",
-                        Map.of("item", Fmt.pretty(material)));
+                        Map.of("item", com.cloudmarket.util.ItemCodec.describe(offer.icon(1))));
                 return;
             }
             later(() -> {
                 player.closeInventory();
-                plugin.bedrock().promptForNumber(player, "Buy " + Fmt.pretty(material),
+                plugin.bedrock().promptForNumber(player,
+                        "Buy " + com.cloudmarket.util.ItemCodec.describe(offer.icon(1)),
                         "How many would you like to buy?", 1, available,
-                        amount -> buyChest(player, chest, material, amount));
+                        amount -> buyChest(player, chest, offer, amount));
             });
             return;
         }
 
-        int amount = click.isShiftClick() ? material.getMaxStackSize() : 1;
-        buyChest(player, chest, material, amount);
+        int amount = click.isShiftClick() ? offer.icon(1).getMaxStackSize() : 1;
+        buyChest(player, chest, offer, amount);
         later(() -> {
             if (player.getOpenInventory().getTopInventory().getHolder() instanceof MarketHolder) {
                 plugin.gui().openShopChest(player, chest, false);
@@ -333,23 +334,25 @@ public final class GuiListener implements Listener {
         });
     }
 
-    private void buyChest(Player player, ShopChest chest, Material material, int amount) {
-        ShopChestManager.Purchase purchase = plugin.shopChests().buy(player, chest, material, amount);
+    private void buyChest(Player player, ShopChest chest, ShopChest.Offer offer, int amount) {
+        ShopChestManager.Purchase purchase =
+                plugin.shopChests().buy(player, chest, offer.key(), amount);
         String symbol = plugin.configs().currencySymbol();
+        String material = com.cloudmarket.util.ItemCodec.describe(offer.icon(1));
         switch (purchase.result()) {
             case OK -> plugin.configs().messages().send(player, "shopchest.bought", Map.of(
                     "amount", String.valueOf(purchase.quantity()),
-                    "item", Fmt.pretty(material),
+                    "item", material,
                     "total", Fmt.money(purchase.total()),
                     "owner", plugin.economy().nameOf(chest.getOwner()),
                     "symbol", symbol));
             case OUT_OF_STOCK -> plugin.configs().messages().send(player, "shopchest.out-of-stock",
-                    Map.of("item", Fmt.pretty(material)));
+                    Map.of("item", material));
             case NOT_ENOUGH_MONEY -> plugin.configs().messages().send(player, "market.cannot-afford");
             case NO_INVENTORY_SPACE -> plugin.configs().messages().send(player, "market.inventory-full");
             case OWN_SHOP -> plugin.configs().messages().send(player, "shopchest.own-shop");
             default -> plugin.configs().messages().send(player, "shopchest.not-listed",
-                    Map.of("item", Fmt.pretty(material)));
+                    Map.of("item", material));
         }
     }
 }

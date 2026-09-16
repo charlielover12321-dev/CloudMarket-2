@@ -285,6 +285,8 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case UTILITY -> 2.0d;
             case BREWING -> 3.0d;
             case NATURAL -> 0.4d;
+            case SPAWN_EGGS -> 50.0d;
+            case MUSIC -> 350.0d;
             case FOOD -> 1.0d;
             case MISC -> 0.5d;
         };
@@ -295,6 +297,7 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case WOOD, MISC, BUILDING, DECORATION, NATURAL -> 8192L;
             case FOOD -> 6144L;
             case MOB_DROPS, REDSTONE_TECH, UTILITY, BREWING -> 3072L;
+            case SPAWN_EGGS, MUSIC -> 64L;
             case ORES, TOOLS -> 2048L;
         };
     }

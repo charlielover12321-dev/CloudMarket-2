@@ -3,6 +3,7 @@ package com.cloudmarket.shops;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.inventory.ItemStack;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -28,7 +29,36 @@ public final class ShopChest {
     private final int y;
     private final int z;
     private final UUID owner;
-    private final Map<Material, BigDecimal> prices = new ConcurrentHashMap<>();
+    private final Map<String, Offer> offers = new ConcurrentHashMap<>();
+
+    /**
+     * One priced item variant in this chest.
+     *
+     * @param key      stable identifier from ItemCodec.keyOf
+     * @param material the material, for stock counting and display fallback
+     * @param template the exact item, or null for a legacy material-wide listing
+     *                 that matches any item of that type
+     * @param price    per unit
+     */
+    public record Offer(String key, Material material, ItemStack template, BigDecimal price) {
+
+        /** True if this listing matches the given stack. */
+        public boolean matches(ItemStack stack) {
+            if (stack == null || stack.getType() != material) {
+                return false;
+            }
+            // A legacy listing has no template and deliberately matches the whole
+            // material, which is the old behaviour for rows written before variants.
+            return template == null || stack.isSimilar(template);
+        }
+
+        /** A display copy: the real item where we have one, else a plain stack. */
+        public ItemStack icon(int amount) {
+            ItemStack copy = template != null ? template.clone() : new ItemStack(material);
+            copy.setAmount(Math.max(1, Math.min(amount, copy.getMaxStackSize())));
+            return copy;
+        }
+    }
 
     public ShopChest(int id, String world, int x, int y, int z, UUID owner) {
         this.id = id;
@@ -63,20 +93,20 @@ public final class ShopChest {
         return owner;
     }
 
-    public Map<Material, BigDecimal> getPrices() {
-        return prices;
+    public Map<String, Offer> getOffers() {
+        return offers;
     }
 
-    public BigDecimal priceOf(Material material) {
-        return prices.get(material);
+    public Offer offerFor(String key) {
+        return offers.get(key);
     }
 
-    public void setPrice(Material material, BigDecimal price) {
-        prices.put(material, price);
+    public void setOffer(Offer offer) {
+        offers.put(offer.key(), offer);
     }
 
-    public void clearPrice(Material material) {
-        prices.remove(material);
+    public void clearOffer(String key) {
+        offers.remove(key);
     }
 
     public Location toLocation(World resolved) {

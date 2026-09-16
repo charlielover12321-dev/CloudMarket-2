@@ -90,6 +90,61 @@ public final class ItemRarity {
             "MUSIC_DISC_PRECIPICE", "MUSIC_DISC_LAVA_CHICKEN", "MUSIC_DISC_TEARS"
     );
 
+    /**
+     * Spawn egg prices, tiered by how hard the mob is to reach rather than by
+     * anything about the egg itself.
+     *
+     * <p>A single flat price would be absurd across this range: a chicken and a
+     * warden are the same item type and nothing like the same achievement. The
+     * boss entries are included in case a plugin on your server provides eggs
+     * vanilla does not - if the material does not exist, it is simply skipped.
+     */
+    private static final Set<String> BOSS_EGGS = Set.of("ENDER_DRAGON", "WARDEN");
+
+    private static final Set<String> WITHER_TIER = Set.of("WITHER", "ELDER_GUARDIAN");
+
+    private static final Set<String> RARE_MOBS = Set.of(
+            "WITHER_SKELETON", "EVOKER", "VINDICATOR", "RAVAGER", "SHULKER", "GHAST",
+            "HAPPY_GHAST", "ZOGLIN", "PIGLIN_BRUTE", "ILLUSIONER", "GIANT", "SNIFFER",
+            "ALLAY", "CAMEL", "IRON_GOLEM", "CREAKING");
+
+    private static final Set<String> UNCOMMON_MOBS = Set.of(
+            "ENDERMAN", "WITCH", "BLAZE", "GUARDIAN", "PILLAGER", "HOGLIN", "PIGLIN",
+            "MAGMA_CUBE", "PHANTOM", "CAVE_SPIDER", "SILVERFISH", "ENDERMITE", "VEX",
+            "BREEZE", "BOGGED", "DROWNED", "HUSK", "STRAY", "SKELETON_HORSE",
+            "ZOMBIE_HORSE", "MULE", "LLAMA", "TRADER_LLAMA", "PANDA", "POLAR_BEAR",
+            "TURTLE", "DOLPHIN", "AXOLOTL", "GLOW_SQUID", "GOAT", "FROG", "TADPOLE",
+            "ARMADILLO", "WANDERING_TRADER", "VILLAGER", "ZOMBIE_VILLAGER", "STRIDER",
+            "SKELETON_HORSE", "PARROT", "OCELOT", "FOX");
+
+    /** Common mobs: everything you trip over in the first hour. */
+    private static final double COMMON_EGG_PRICE = 50.0d;
+
+    public static java.util.OptionalDouble spawnEggPrice(String materialName) {
+        String name = materialName.toUpperCase(Locale.ROOT);
+        if (!name.endsWith("_SPAWN_EGG")) {
+            return java.util.OptionalDouble.empty();
+        }
+        String mob = name.substring(0, name.length() - "_SPAWN_EGG".length());
+
+        if (mob.equals("ENDER_DRAGON")) {
+            return java.util.OptionalDouble.of(10_000.0d);
+        }
+        if (BOSS_EGGS.contains(mob)) {
+            return java.util.OptionalDouble.of(7_500.0d);
+        }
+        if (WITHER_TIER.contains(mob)) {
+            return java.util.OptionalDouble.of(5_000.0d);
+        }
+        if (RARE_MOBS.contains(mob)) {
+            return java.util.OptionalDouble.of(1_200.0d);
+        }
+        if (UNCOMMON_MOBS.contains(mob)) {
+            return java.util.OptionalDouble.of(400.0d);
+        }
+        return java.util.OptionalDouble.of(COMMON_EGG_PRICE);
+    }
+
     public static boolean isUnobtainable(Material material) {
         return UNOBTAINABLE.contains(material.name().toUpperCase(Locale.ROOT));
     }
@@ -133,7 +188,7 @@ public final class ItemRarity {
             return OptionalDouble.of(2_000.0d);
         }
         if (name.endsWith("_SPAWN_EGG")) {
-            return OptionalDouble.of(1_500.0d);
+            return spawnEggPrice(name);
         }
         if (name.equals("HEART_OF_THE_SEA") || name.equals("WITHER_SKELETON_SKULL")) {
             return OptionalDouble.of(1_500.0d);
