@@ -193,6 +193,17 @@ public final class GuiManager {
         for (int offset = 0; offset < CONTENT_SLOTS && start + offset < all.size(); offset++) {
             Listing listing = all.get(start + offset);
             List<String> lore = new ArrayList<>();
+            // Spell the enchantments out rather than relying on the client to render
+            // them from NBT. On a book especially, the enchantment IS the item, and a
+            // buyer should never have to guess what they are paying for.
+            List<String> enchants =
+                    com.cloudmarket.util.ItemCodec.enchantmentLines(listing.getTemplate());
+            if (!enchants.isEmpty()) {
+                for (String line : enchants) {
+                    lore.add("&b" + line);
+                }
+                lore.add("");
+            }
             lore.add("&7Price: &a" + symbol + Fmt.money(listing.getUnitPrice()) + " &7each");
             lore.add("&7Remaining: &f" + Fmt.count(listing.getRemaining()));
             lore.add("&7All of it: &a" + symbol + Fmt.money(listing.totalValue()));

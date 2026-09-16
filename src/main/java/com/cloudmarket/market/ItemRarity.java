@@ -68,7 +68,16 @@ public final class ItemRarity {
             // Silverfish blocks. Tradable only as a grief tool.
             "INFESTED_STONE", "INFESTED_COBBLESTONE", "INFESTED_STONE_BRICKS",
             "INFESTED_MOSSY_STONE_BRICKS", "INFESTED_CRACKED_STONE_BRICKS",
-            "INFESTED_CHISELED_STONE_BRICKS", "INFESTED_DEEPSLATE"
+            "INFESTED_CHISELED_STONE_BRICKS", "INFESTED_DEEPSLATE",
+
+            // Auction-only. These are not unobtainable - they are unique, carry
+            // data the cloud market throws away, or are worth far more than any
+            // single price could express. Barring them here keeps them OFF /shop
+            // while leaving /auction completely free, which is the right venue for
+            // a Mending book or a dragon egg anyway.
+            "ENCHANTED_BOOK", "DRAGON_EGG", "DRAGON_HEAD", "ELYTRA", "HEAVY_CORE",
+            "SPAWNER", "NETHER_STAR", "TOTEM_OF_UNDYING", "TRIDENT", "SNIFFER_EGG",
+            "ENCHANTED_GOLDEN_APPLE", "HEART_OF_THE_SEA", "STICK"
     );
 
     /**

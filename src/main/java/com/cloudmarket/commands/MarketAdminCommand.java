@@ -42,6 +42,7 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
             case "whitelist" -> whitelist(sender, args);
             case "autoconfig" -> autoConfig(sender, args);
             case "reprice" -> reprice(sender);
+            case "recategorize", "recategorise" -> recategorize(sender);
             case "info" -> info(sender, args);
             case "reload" -> reload(sender);
             default -> plugin.configs().messages().send(sender, "admin.usage");
@@ -349,6 +350,49 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
                 Map.of("count", String.valueOf(updated)));
     }
 
+    /**
+     * Re-apply the classifier to every entry already in market-items.yml.
+     *
+     * <p>Categories are read from the config first and only fall back to the
+     * classifier, which is correct - an admin filing an item by hand should win.
+     * But it means entries written by an earlier autoconfig keep whatever category
+     * existed at the time, so improving the classifier moves nothing. Everything
+     * written before Natural, Utility and Brewing existed is still pinned to Misc.
+     *
+     * <p>This rewrites the category field only. Prices are untouched.
+     */
+    private void recategorize(CommandSender sender) {
+        if (!sender.hasPermission("market.admin.autoconfig")) {
+            plugin.configs().messages().send(sender, "general.no-permission");
+            return;
+        }
+        FileConfiguration config = plugin.configs().marketItems();
+        ConfigurationSection root = config.getConfigurationSection("items");
+        if (root == null) {
+            plugin.configs().messages().send(sender, "admin.nothing-to-reprice");
+            return;
+        }
+
+        int moved = 0;
+        for (String key : root.getKeys(false)) {
+            Material material = Material.matchMaterial(key.toUpperCase(Locale.ROOT));
+            if (material == null) {
+                continue;
+            }
+            String current = config.getString("items." + key + ".category");
+            String fresh = Category.classify(material).name();
+            if (!fresh.equals(current)) {
+                config.set("items." + key + ".category", fresh);
+                moved++;
+            }
+        }
+
+        plugin.configs().saveMarketItems();
+        plugin.reloadMarket();
+        plugin.configs().messages().send(sender, "admin.recategorized",
+                Map.of("count", String.valueOf(moved)));
+    }
+
     private void info(CommandSender sender, String[] args) {
         if (args.length >= 2) {
             Material material = Material.matchMaterial(args[1].toUpperCase(Locale.ROOT));
@@ -403,7 +447,8 @@ public final class MarketAdminCommand implements CommandExecutor, TabCompleter {
                                       @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
             return MarketCommands.filter(
-                    List.of("setprice", "stock", "whitelist", "autoconfig", "reprice", "info", "reload"), args[0]);
+                    List.of("setprice", "stock", "whitelist", "autoconfig", "reprice",
+                            "recategorize", "info", "reload"), args[0]);
         }
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);

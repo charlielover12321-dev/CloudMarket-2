@@ -30,6 +30,16 @@
 # Materials barred from the market entirely, on top of the built-in unobtainable
 # list (bedrock, barriers, command blocks, end portal frames, infested stone,
 # suspicious sand, budding amethyst and similar). Add your own here.
+# Built-in defaults already bar: unobtainable items (bedrock, barriers, command
+# blocks, end portal frames, infested stone, suspicious sand, budding amethyst,
+# trial spawners, vaults), plus auction-only items that should never carry a single
+# cloud price - enchanted books, dragon egg, dragon head, elytra, heavy core,
+# spawner, nether star, totem of undying, trident, sniffer egg, enchanted golden
+# apple, heart of the sea, and sticks.
+#
+# IMPORTANT: blacklisting removes an item from /shop ONLY. The black market is
+# unaffected, so /auction hand still works on every one of them - which is the
+# right venue for a Mending book or a dragon egg anyway.
 blacklist: []
 
 # Re-allow something from the built-in list. "Unobtainable" is server-specific - if

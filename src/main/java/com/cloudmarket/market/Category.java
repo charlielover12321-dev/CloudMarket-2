@@ -104,6 +104,16 @@ public enum Category {
             "SANDSTONE", "QUARTZ_BLOCK", "MUD_BRICK", "NETHER_BRICK", "COPPER_BLOCK",
             "SCAFFOLDING", "BRICK");
 
+    private static final Set<String> NATURAL_EXACT = Set.of(
+            "STONE", "SMOOTH_STONE", "COBBLESTONE", "MOSSY_COBBLESTONE", "DEEPSLATE",
+            "COBBLED_DEEPSLATE", "GRANITE", "DIORITE", "ANDESITE", "TUFF", "CALCITE",
+            "BASALT", "SMOOTH_BASALT", "BLACKSTONE", "GRAVEL", "SAND", "RED_SAND",
+            "DIRT", "COARSE_DIRT", "ROOTED_DIRT", "CLAY", "MUD", "END_STONE",
+            "NETHERRACK", "SOUL_SAND", "SOUL_SOIL", "OBSIDIAN", "CRYING_OBSIDIAN",
+            "MAGMA_BLOCK", "SNOW_BLOCK", "SNOWBALL", "ICE", "PACKED_ICE", "BLUE_ICE",
+            "MOSS_BLOCK", "GRASS_BLOCK", "PODZOL", "MYCELIUM", "POINTED_DRIPSTONE",
+            "DRIPSTONE_BLOCK", "GLOWSTONE", "SCULK", "FLINT");
+
     private static final Set<String> NATURAL_FRAGMENTS = Set.of(
             "DIRT", "SAND", "GRAVEL", "CLAY", "ICE", "SNOW", "NETHERRACK", "END_STONE",
             "SOUL_SAND", "SOUL_SOIL", "MUD", "PODZOL", "MYCELIUM", "GRASS_BLOCK",
@@ -135,8 +145,38 @@ public enum Category {
      * torch does not land with the torches. Anything that falls through all of it
      * ends up in Misc, which is the honest answer for a genuinely odd item.
      */
+    /**
+     * True for COAL_BLOCK, IRON_BLOCK, RAW_GOLD_BLOCK and friends.
+     *
+     * <p>These kept landing in Misc: they are not ores, not in the mineral list, and
+     * match no building suffix, so they fell through everything. Strip the _BLOCK
+     * and ask whether what is left is a mineral.
+     */
+    private static boolean isMineralBlock(String name) {
+        if (!name.endsWith("_BLOCK")) {
+            return false;
+        }
+        String base = name.substring(0, name.length() - "_BLOCK".length());
+        return MINERAL_NAMES.contains(base) || base.startsWith("RAW_")
+                || base.equals("IRON") || base.equals("GOLD") || base.equals("COPPER")
+                || base.equals("NETHERITE") || base.equals("EMERALD") || base.equals("LAPIS");
+    }
+
     public static Category classify(Material material) {
         String name = material.name().toUpperCase(Locale.ROOT);
+
+        // Anything with durability is a tool, weapon or piece of armour. This is
+        // what the name lists could never keep up with - 26.2's spears and nautilus
+        // armour match no suffix I could have written in advance, and the next game
+        // drop will add more. Durability is the property that actually defines the
+        // category, so ask the game rather than guessing from the name.
+        try {
+            if (material.getMaxDurability() > 0) {
+                return TOOLS;
+            }
+        } catch (Throwable ignored) {
+            // Fall through to the name lists.
+        }
 
         for (String suffix : TOOL_SUFFIXES) {
             if (name.endsWith(suffix)) {
@@ -152,7 +192,7 @@ public enum Category {
             return WOOD;
         }
         if (name.endsWith("_ORE") || name.startsWith("RAW_") || MINERAL_NAMES.contains(name)
-                || name.contains("SULFUR") || name.contains("CINNABAR")) {
+                || isMineralBlock(name) || name.contains("SULFUR") || name.contains("CINNABAR")) {
             return ORES;
         }
         if (MOB_DROP_NAMES.contains(name)) {
@@ -186,6 +226,9 @@ public enum Category {
         }
         // Natural terrain is checked before building blocks so tuff, calcite and
         // basalt file as things you dig up rather than things you build with.
+        if (NATURAL_EXACT.contains(name)) {
+            return NATURAL;
+        }
         for (String fragment : NATURAL_FRAGMENTS) {
             if (name.contains(fragment)) {
                 return NATURAL;

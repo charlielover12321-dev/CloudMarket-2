@@ -570,6 +570,14 @@ public final class MarketManager {
         if (meta.hasDisplayName() || meta.hasEnchants() || meta.hasLore()) {
             return false;
         }
+        // Books keep their enchantments in EnchantmentStorageMeta, NOT in the
+        // ordinary enchantment map - so hasEnchants() is false for a Mending book
+        // and it would otherwise sell to the cloud at plain-material price,
+        // destroying the only thing that made it valuable.
+        if (meta instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta storage
+                && storage.hasStoredEnchants()) {
+            return false;
+        }
         // Damaged tools and armour. A worn diamond pickaxe still contains three
         // diamonds by recipe, so paying derived value for it would let a player mine
         // an item to the brink of breaking and still cash it out whole.
